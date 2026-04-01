@@ -66,7 +66,7 @@ function Header({ onNavigateToReservations, onBackToSpaces, activeTab }: { onNav
       <div className="flex justify-between items-center px-8 h-full max-w-full">
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-transparent font-headline tracking-tight cursor-pointer" onClick={onBackToSpaces}>
-            Academic Architect
+            DoDate Reservaciones
           </span>
           <nav className="hidden md:flex items-center gap-6 font-headline tracking-tight text-sm font-semibold">
             <button 
@@ -108,7 +108,7 @@ function Footer() {
     <footer className="w-full py-8 mt-auto bg-slate-100">
       <div className="bg-slate-200 h-[1px] mb-8 max-w-7xl mx-auto"></div>
       <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-4 font-body text-xs text-slate-500">
-        <p>© 2024 The Academic Architect. Institutional Property.</p>
+        <p>© 2024 The DoDate Reservaciones. Institutional Property.</p>
         <div className="flex gap-6">
           <a className="hover:text-blue-900 transition-colors opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
           <a className="hover:text-blue-900 transition-colors opacity-80 hover:opacity-100" href="#">Terms of Service</a>
@@ -126,7 +126,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
       <header className="flex items-center justify-between px-6 py-4 w-full bg-[#f7f9fb]">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-primary text-2xl">account_balance</span>
-          <span className="font-headline font-bold tracking-tight text-xl text-[#191c1e]">Academic Architect</span>
+          <span className="font-headline font-bold tracking-tight text-xl text-[#191c1e]">DoDate Reservaciones</span>
         </div>
       </header>
       <main className="flex-grow flex items-center justify-center px-4 py-12">
@@ -137,7 +137,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
                 <span className="material-symbols-outlined text-primary text-4xl">architecture</span>
               </div>
               <h1 className="font-headline text-2xl font-extrabold text-on-surface tracking-tight mb-2">Iniciar Sesión</h1>
-              <p className="text-on-surface-variant text-sm">Accede a la arquitectura de tu espacio institucional</p>
+              <p className="text-on-surface-variant text-sm">Accede a la app de reservas de espacios DoDate</p>
             </div>
             <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
               <div className="space-y-2">
@@ -170,7 +170,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
           <a className="font-body text-xs text-[#43474f] hover:text-[#001e40] transition-opacity opacity-80 hover:opacity-100" href="#">Security Architecture</a>
         </div>
         <p className="font-body text-xs text-[#43474f] opacity-80">
-          © 2024 Academic Architect. Institutional Space Management.
+          © 2024 DoDate Reservaciones. Institutional Space Management.
         </p>
       </footer>
     </div>
@@ -457,7 +457,7 @@ function FailureView({ onTryAgain, onBackToSpaces }: { onTryAgain: () => void, o
     <div className="bg-surface min-h-screen flex flex-col">
       <header className="fixed top-0 w-full z-50 bg-slate-50/80 backdrop-blur-xl shadow-sm h-16 flex justify-between items-center px-8 max-w-full">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-transparent font-headline tracking-tight">Academic Architect</span>
+          <span className="text-xl font-bold bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-transparent font-headline tracking-tight">DoDate Reservaciones</span>
         </div>
         <div className="flex items-center gap-6">
           <button className="text-slate-500 hover:bg-slate-100 p-2 rounded-lg transition-all active:scale-95">
