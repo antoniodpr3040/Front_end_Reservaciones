@@ -1,1 +1,1 @@
-Front end para la para nuestra app de reservas de espacios DoDate.
+Front end para para nuestra app de reservas de espacios DoDate.
