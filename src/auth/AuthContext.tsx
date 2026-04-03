@@ -26,6 +26,55 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const NGROK_SKIP_WARNING_HEADER = {
+  'ngrok-skip-browser-warning': 'true',
+};
+const ACCESS_TOKEN_STORAGE_KEY = 'dodate_access_token';
+
+function readStoredAccessToken() {
+  return sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)?.trim() ?? '';
+}
+
+function writeStoredAccessToken(token: string) {
+  sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+}
+
+function clearStoredAccessToken() {
+  sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+}
+
+function consumeAccessTokenFromHash() {
+  const hash = window.location.hash.replace(/^#/, '');
+
+  if (!hash) {
+    return '';
+  }
+
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token')?.trim() ?? '';
+
+  if (!token) {
+    return '';
+  }
+
+  writeStoredAccessToken(token);
+  window.history.replaceState(
+    null,
+    document.title,
+    `${window.location.pathname}${window.location.search}`,
+  );
+
+  return token;
+}
+
+function buildAuthHeaders() {
+  const token = readStoredAccessToken();
+
+  return {
+    ...NGROK_SKIP_WARNING_HEADER,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -82,11 +131,18 @@ function normalizeUser(payload: unknown) {
 }
 
 async function loadSession() {
+  consumeAccessTokenFromHash();
+
   const response = await fetch(AUTH_SESSION_URL, {
     credentials: 'include',
+    headers: buildAuthHeaders(),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearStoredAccessToken();
+    }
+
     return {
       authenticated: false,
       user: null,
@@ -121,6 +177,7 @@ async function requestLogout() {
   const postResponse = await fetch(AUTH_LOGOUT_URL, {
     method: 'POST',
     credentials: 'include',
+    headers: buildAuthHeaders(),
   });
 
   if (postResponse.ok) {
@@ -134,6 +191,7 @@ async function requestLogout() {
   const getResponse = await fetch(AUTH_LOGOUT_URL, {
     method: 'GET',
     credentials: 'include',
+    headers: buildAuthHeaders(),
   });
 
   if (!getResponse.ok) {
@@ -166,6 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       await requestLogout();
+      clearStoredAccessToken();
       setIsAuthenticated(false);
       setUser(null);
     } finally {
