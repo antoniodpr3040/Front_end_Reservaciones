@@ -28,7 +28,7 @@ export default function App() {
           className="flex min-h-screen flex-col"
         >
           {currentScreen === 'login' && (
-            <LoginView onLogin={() => navigateTo('dashboard')} />
+            <LoginView onLogin={() => {window.location.href = "http://localhost:8000/login/microsoft"}} />
           )}
           {currentScreen === 'dashboard' && (
             <DashboardView

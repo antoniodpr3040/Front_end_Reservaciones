@@ -85,7 +85,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
           </a>
         </div>
         <p className="text-xs text-[#43474f] opacity-80 font-body">
-          (c) 2024 DoDate Reservaciones. Gestion de espacios institucionales.
+          (c) 2026 DoDate Reservaciones. Gestion de espacios institucionales.
         </p>
       </footer>
     </div>
