@@ -78,6 +78,10 @@ function toMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
+function minutesToTimeValue(totalMinutes: number) {
+  return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
+}
+
 function addMinutes(value: string, minutesToAdd: number) {
   const totalMinutes = toMinutes(value) + minutesToAdd;
   const hours = Math.floor(totalMinutes / 60);
@@ -94,16 +98,22 @@ function formatTimeLabel(value: string) {
   return `${normalizedHours}:${pad(minutes)} ${suffix}`;
 }
 
+function formatDurationLabel(durationMinutes: number) {
+  if (durationMinutes < 60) {
+    return `${durationMinutes} min`;
+  }
+
+  const hours = durationMinutes / 60;
+
+  return Number.isInteger(hours) ? `${hours} h` : `${hours.toFixed(1)} h`;
+}
+
 function isSameDay(left: Date, right: Date) {
   return (
     left.getFullYear() === right.getFullYear() &&
     left.getMonth() === right.getMonth() &&
     left.getDate() === right.getDate()
   );
-}
-
-function minutesToTimeValue(totalMinutes: number) {
-  return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -472,7 +482,7 @@ export function DashboardView({
                       }}
                       className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
                     >
-                      Manana
+                      Mañana
                     </button>
                   </div>
                   <p className="text-xs capitalize text-on-surface-variant">
@@ -522,115 +532,108 @@ export function DashboardView({
                   <div className="max-h-[26rem] overflow-y-auto px-4 py-3">
                     {hasTimelineAvailability ? (
                       <div className="flex min-w-[28rem] gap-4">
-                      <div className="w-20 shrink-0">
-                        {timeSlots.map((slot) => (
-                          <div
-                            key={`label-${slot}`}
-                            className="flex h-11 items-start justify-end pr-2 pt-1 text-xs font-semibold text-outline-variant"
-                          >
-                            {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div
-                        ref={timelineRef}
-                        onPointerDown={handleTimelinePointerDown}
-                        className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none"
-                        style={{
-                          height:
-                            timeSlots.length * TIMELINE_SLOT_HEIGHT,
-                        }}
-                      >
-                        {timeSlots.map((slot, index) => (
-                          <div
-                            key={`row-${slot}`}
-                            className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-surface-container-high"
-                            style={{ top: index * TIMELINE_SLOT_HEIGHT }}
-                          />
-                        ))}
-
-                        {hasSelectedTimeRange &&
-                        selectedStartMinutes !== null &&
-                        selectedEndMinutes !== null ? (
-                          <div
-                            className="absolute left-3 right-3 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none"
-                            style={{
-                              top: selectionTop,
-                              height: selectionHeight,
-                            }}
-                          >
+                        <div className="w-20 shrink-0">
+                          {timeSlots.map((slot) => (
                             <div
-                              onPointerDown={(event) =>
-                                startDraggingSelection(event, 'resize-start')
-                              }
-                              className="absolute top-0 left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize"
+                              key={`label-${slot}`}
+                              className="flex h-11 items-start justify-end pr-2 pt-1 text-xs font-semibold text-outline-variant"
                             >
-                              <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                              {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
                             </div>
+                          ))}
+                        </div>
+
+                        <div
+                          ref={timelineRef}
+                          onPointerDown={handleTimelinePointerDown}
+                          className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none"
+                          style={{
+                            height:
+                              timeSlots.length * TIMELINE_SLOT_HEIGHT,
+                          }}
+                        >
+                          {timeSlots.map((slot, index) => (
                             <div
-                              onPointerDown={(event) =>
-                                startDraggingSelection(event, 'move')
-                              }
-                              className={`flex h-full w-full justify-between cursor-grab active:cursor-grabbing select-none ${
-                                isCompactSelection
-                                  ? 'items-center px-5 py-2'
-                                  : 'items-center px-5 py-4'
-                              }`}
+                              key={`row-${slot}`}
+                              className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-surface-container-high"
+                              style={{ top: index * TIMELINE_SLOT_HEIGHT }}
+                            />
+                          ))}
+
+                          {hasSelectedTimeRange &&
+                          selectedStartMinutes !== null &&
+                          selectedEndMinutes !== null ? (
+                            <div
+                              className="absolute left-3 right-3 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none"
+                              style={{
+                                top: selectionTop,
+                                height: selectionHeight,
+                              }}
                             >
-                              <div>
-                                <div
-                                  className={`${
-                                    isCompactSelection
-                                      ? 'flex items-center gap-2'
-                                      : 'space-y-2'
-                                  }`}
-                                >
-                                  <p
-                                    className={`font-bold text-[#8b1f2b] ${
+                              <div
+                                onPointerDown={(event) =>
+                                  startDraggingSelection(event, 'resize-start')
+                                }
+                                className="absolute top-0 left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize"
+                              >
+                                <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                              </div>
+
+                              <div
+                                onPointerDown={(event) =>
+                                  startDraggingSelection(event, 'move')
+                                }
+                                className={`flex h-full w-full items-center justify-between cursor-grab active:cursor-grabbing select-none ${
+                                  isCompactSelection ? 'px-5 py-2' : 'px-5 py-4'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div
+                                    className={`${
                                       isCompactSelection
-                                        ? 'text-[0.95rem]'
-                                        : 'text-[1.15rem]'
+                                        ? 'flex items-center gap-2'
+                                        : 'flex items-center'
                                     }`}
                                   >
-                                    {formatTimeLabel(startTime)} -{' '}
-                                    {formatTimeLabel(endTime)}
-                                  </p>
-                                  {isCompactSelection ? (
-                                    <p className="text-xs font-medium text-[#8b1f2b]/75">
-                                      (Arrastra para mover la reservacion)
+                                    <p
+                                      className={`truncate font-bold text-[#8b1f2b] ${
+                                        isCompactSelection
+                                          ? 'text-[0.95rem]'
+                                          : 'text-[1.15rem]'
+                                      }`}
+                                    >
+                                      {formatTimeLabel(startTime)} -{' '}
+                                      {formatTimeLabel(endTime)}
                                     </p>
-                                  ) : null}
+                                    {isCompactSelection ? (
+                                      <p className="truncate text-[11px] font-medium text-[#8b1f2b]/75">
+                                        (Arrastra para mover la reservacion)
+                                      </p>
+                                    ) : null}
+                                  </div>
                                 </div>
-                                {!isCompactSelection ? (
-                                  <p className="text-sm font-medium text-[#8b1f2b]/80">
-                                    Arrastra para mover la reservacion
-                                  </p>
-                                ) : null}
+                                <span className="ml-4 rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-[#8b1f2b]">
+                                  {formatDurationLabel(selectionDurationMinutes)}
+                                </span>
                               </div>
-                              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-[#8b1f2b]">
-                                {Math.round(selectionDurationMinutes / 60) > 0
-                                  ? `${selectionDurationMinutes / 60} h`
-                                  : '30 min'}
-                              </span>
+
+                              <div
+                                onPointerDown={(event) =>
+                                  startDraggingSelection(event, 'resize-end')
+                                }
+                                className="absolute bottom-0 left-1/2 h-4 w-4 -translate-x-1/2 translate-y-1/2 cursor-ns-resize"
+                              >
+                                <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                              </div>
                             </div>
-                            <div
-                              onPointerDown={(event) =>
-                                startDraggingSelection(event, 'resize-end')
-                              }
-                              className="absolute bottom-0 left-1/2 h-4 w-4 -translate-x-1/2 translate-y-1/2 cursor-ns-resize"
-                            >
-                              <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
-                            </div>
-                          </div>
-                        ) : null}
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
                     ) : (
                       <div className="rounded-3xl bg-surface-container-low px-6 py-8 text-sm text-on-surface-variant">
                         {isSelectedToday
-                          ? 'Las franjas de hoy ya terminaron. Selecciona otro dia para crear una reservacion.'
-                          : 'No hay franjas configuradas para este dia.'}
+                          ? 'Las franjas de hoy ya terminaron. Selecciona otro día para crear una reservación.'
+                          : 'No hay franjas configuradas para este día.'}
                       </div>
                     )}
                   </div>
@@ -660,7 +663,7 @@ export function DashboardView({
               <button
                 type="submit"
                 disabled={!hasSelectedTimeRange}
-                className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95"
+                className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Confirmar reserva
               </button>
