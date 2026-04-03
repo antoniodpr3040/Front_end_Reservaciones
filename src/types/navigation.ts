@@ -3,6 +3,7 @@ export type Screen =
   | 'dashboard'
   | 'success'
   | 'failure'
-  | 'reservations';
+  | 'reservations'
+  | 'profile';
 
-export type ActiveTab = 'spaces' | 'reservations';
+export type ActiveTab = 'spaces' | 'reservations' | 'profile';

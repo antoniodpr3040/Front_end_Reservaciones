@@ -1,4 +1,6 @@
 import type { ActiveTab } from '../../types/navigation';
+import { useAuth } from '../../auth/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   activeTab?: ActiveTab;
@@ -11,6 +13,16 @@ export function Header({
   onBackToSpaces,
   onNavigateToReservations,
 }: HeaderProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const initials = user?.name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((chunk) => chunk[0]?.toUpperCase())
+    .join('');
+
   return (
     <header className="fixed top-0 z-50 h-16 w-full bg-white/80 shadow-sm backdrop-blur-xl">
       <div className="flex h-full max-w-full items-center justify-between px-8">
@@ -69,12 +81,29 @@ export function Header({
           >
             <span className="material-symbols-outlined">help</span>
           </button>
-          <div className="ml-2 h-8 w-8 overflow-hidden rounded-full border border-slate-200">
-            <img
-              alt="Avatar del usuario"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuVyeAPqNQDLEeAgFfRE6rEior0b2sfv-DFqAPCn1qNmChr35d_x76mUwQ5RByOskpfp5xD9hB9zUr8h_5AmR1fy2b3QY_nvgCehgQwnfJ5th6T4HFIqYOngogmTPwXT1ueeqnr2X0FmmLeY3_rZyxSazwh-_8p3XGro7BvVPxRa0Dg3XG8QD6CATOa55l-mo8uL2XObeRdmuO1xRsMZ08hxYr_Nft6ttqln3Sgja0Nq8bW6tpL8xedisMXPHt77B2qkbc-PcdH7aE"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            className={`ml-2 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border transition-all active:scale-95 ${
+              activeTab === 'profile'
+                ? 'border-primary shadow-[0_0_0_4px_rgba(0,30,64,0.08)]'
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+            aria-label="Abrir perfil del usuario"
+            title="Perfil"
+          >
+            {user?.avatarUrl ? (
+              <img
+                alt="Avatar del usuario"
+                src={user.avatarUrl}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="bg-primary-gradient flex h-full w-full items-center justify-center text-[11px] font-bold text-white">
+                {initials || 'US'}
+              </span>
+            )}
+          </button>
         </div>
       </div>
     </header>

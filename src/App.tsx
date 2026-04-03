@@ -2,9 +2,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AuthLoadingScreen, ProtectedRoute } from './auth/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
+import { AUTH_LOGIN_URL } from './auth/config';
 import { DashboardView } from './views/DashboardView';
 import { FailureView } from './views/FailureView';
 import { LoginView } from './views/LoginView';
+import { ProfileView } from './views/ProfileView';
 import { ReservationsView } from './views/ReservationsView';
 import { SuccessView } from './views/SuccessView';
 
@@ -52,8 +54,7 @@ export default function App() {
                 ) : (
                   <LoginView
                     onLogin={() => {
-                      window.location.href =
-                        'http://localhost:8000/login/microsoft';
+                      window.location.href = AUTH_LOGIN_URL;
                     }}
                   />
                 )
@@ -101,6 +102,14 @@ export default function App() {
                   <ReservationsView
                     onBackToSpaces={() => navigateTo('/dashboard')}
                   />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfileView />
                 </ProtectedRoute>
               }
             />
