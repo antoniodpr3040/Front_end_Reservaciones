@@ -31,50 +31,29 @@ export function LoginView({ onLogin }: LoginViewProps) {
                 Accede a la app de reservas de espacios DoDate
               </p>
             </div>
-            <form
-              className="space-y-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onLogin();
-              }}
-            >
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
-                  Correo electronico
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="usuario@institucion.edu"
-                  className="ghost-border w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-on-surface outline-none transition-all focus:bg-surface-container-lowest focus:ring-0"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="ml-1 block text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
-                  Contrasena
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="********"
-                  className="ghost-border w-full rounded-lg border-none bg-surface-container-low px-4 py-3 text-on-surface outline-none transition-all focus:bg-surface-container-lowest focus:ring-0"
-                />
-              </div>
-              <div className="flex items-center justify-end">
-                <a
-                  className="text-sm font-medium text-primary transition-all hover:underline underline-offset-4"
-                  href="#"
-                >
-                  Recuperar contrasena
-                </a>
-              </div>
+            <div className="space-y-6">
+              <p className="text-center text-sm leading-relaxed text-on-surface-variant">
+                Ingresa con tu correo institucional
+              </p>
               <button
-                type="submit"
-                className="bg-primary-gradient w-full rounded-xl py-4 font-bold text-on-primary shadow-lg transition-all duration-200 hover:shadow-xl active:scale-95"
+                type="button"
+                onClick={onLogin}
+                className="flex w-full items-center justify-center gap-4 rounded-md border border-[#8a8886] bg-white px-6 py-3.5 font-semibold text-[#5e5e5e] shadow-[0_8px_24px_-18px_rgba(0,0,0,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#f7f7f7] hover:shadow-[0_14px_32px_-20px_rgba(0,0,0,0.55)] active:translate-y-0"
               >
-                Entrar
+                <span
+                  aria-hidden="true"
+                  className="grid h-5 w-5 grid-cols-2 grid-rows-2 gap-[2px]"
+                >
+                  <span className="rounded-[1px] bg-[#f25022]" />
+                  <span className="rounded-[1px] bg-[#7fba00]" />
+                  <span className="rounded-[1px] bg-[#00a4ef]" />
+                  <span className="rounded-[1px] bg-[#ffb900]" />
+                </span>
+                <span className="text-base tracking-[0.01em] font-body">
+                  Inice con Microsoft
+                </span>
               </button>
-            </form>
+            </div>
             <div className="mt-10 border-t border-surface-container-high pt-8 text-center">
               <p className="text-xs leading-relaxed text-on-surface-variant">
                 Este es un sistema de gestion institucional. El acceso no
