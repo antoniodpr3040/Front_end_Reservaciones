@@ -124,6 +124,12 @@ function roundUpToNextSlot(minutes: number) {
   return Math.ceil(minutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
 }
 
+function getHistoryStatusClasses(status: 'Completada' | 'En proceso') {
+  return status === 'Completada'
+    ? 'bg-green-100 text-green-800'
+    : 'bg-secondary-container text-on-secondary-container';
+}
+
 export function DashboardView({
   onConfirmBooking,
   onNavigateToReservations,
@@ -375,12 +381,12 @@ export function DashboardView({
         onBackToSpaces={() => undefined}
         onNavigateToReservations={onNavigateToReservations}
       />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-grow flex-col space-y-16 px-6 pt-24 pb-12 md:px-12">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-grow flex-col space-y-12 px-4 pt-20 pb-10 sm:px-6 md:space-y-16 md:px-10 md:pt-24 md:pb-12 lg:px-12">
         <section className="space-y-4">
-          <h1 className="text-4xl font-extrabold tracking-tight text-primary font-headline md:text-5xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-primary font-headline sm:text-4xl md:text-5xl">
             Gestion de espacios
           </h1>
-          <p className="max-w-2xl text-lg text-on-surface-variant font-body">
+          <p className="max-w-2xl text-base text-on-surface-variant font-body md:text-lg">
             Reserva el espacio de trabajo que necesitas para tu jornada.
           </p>
         </section>
@@ -401,10 +407,10 @@ export function DashboardView({
 
         <section
           id="booking-section"
-          className="grid grid-cols-1 items-start gap-12 lg:grid-cols-2"
+          className="grid grid-cols-1 items-start gap-8 lg:gap-12 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
         >
-          <div className="rounded-[2rem] bg-surface-container-low p-8 md:p-12">
-            <h2 className="mb-8 text-3xl font-bold text-primary font-headline">
+          <div className="rounded-[2rem] bg-surface-container-low p-5 sm:p-6 md:p-8 xl:p-10">
+            <h2 className="mb-6 text-2xl font-bold text-primary font-headline sm:text-3xl md:mb-8">
               Nueva reservacion
             </h2>
             <form
@@ -492,7 +498,7 @@ export function DashboardView({
               </div>
               <div className="space-y-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
                       Horario de reservacion
                     </label>
@@ -513,120 +519,122 @@ export function DashboardView({
                 </div>
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-surface-container-high bg-surface-container-lowest">
-                  <div className="flex flex-col gap-3 border-b border-surface-container-high px-5 py-4 md:flex-row md:items-center md:justify-between">
-                    <div>
+                  <div className="flex flex-col gap-3 border-b border-surface-container-high px-4 py-4 sm:px-5 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
                       <p className="text-xs font-bold tracking-[0.16em] text-on-surface-variant uppercase">
                         Agenda del dia
                       </p>
-                      <p className="mt-2 text-lg font-bold capitalize text-primary">
+                      <p className="mt-2 text-base font-bold capitalize text-primary sm:text-lg">
                         {selectedDateLabel}
                       </p>
                     </div>
-                    <div className="rounded-full bg-surface-container-high px-4 py-2 text-sm font-semibold text-primary">
+                    <div className="rounded-2xl bg-surface-container-high px-4 py-2 text-sm font-semibold text-primary md:max-w-[19rem]">
                       {hasTimelineAvailability
                         ? reservationSummary
                         : 'No hay horarios disponibles para este dia.'}
                     </div>
                   </div>
 
-                  <div className="max-h-[26rem] overflow-y-auto px-4 py-3">
+                  <div className="max-h-[26rem] overflow-y-auto px-3 py-3 sm:px-4">
                     {hasTimelineAvailability ? (
-                      <div className="flex min-w-[28rem] gap-4">
-                        <div className="w-20 shrink-0">
+                      <div className="min-w-[21.5rem] sm:min-w-[24rem]">
+                        <div className="flex gap-3 sm:gap-4">
+                          <div className="w-14 shrink-0 sm:w-20">
                           {timeSlots.map((slot) => (
                             <div
                               key={`label-${slot}`}
-                              className="flex h-11 items-start justify-end pr-2 pt-1 text-xs font-semibold text-outline-variant"
+                              className="flex h-11 items-start justify-end pr-1 pt-1 text-[10px] font-semibold text-outline-variant sm:pr-2 sm:text-xs"
                             >
                               {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
                             </div>
                           ))}
-                        </div>
+                          </div>
 
-                        <div
-                          ref={timelineRef}
-                          onPointerDown={handleTimelinePointerDown}
-                          className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none"
-                          style={{
-                            height:
-                              timeSlots.length * TIMELINE_SLOT_HEIGHT,
-                          }}
-                        >
-                          {timeSlots.map((slot, index) => (
-                            <div
-                              key={`row-${slot}`}
-                              className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-surface-container-high"
-                              style={{ top: index * TIMELINE_SLOT_HEIGHT }}
-                            />
-                          ))}
-
-                          {hasSelectedTimeRange &&
-                          selectedStartMinutes !== null &&
-                          selectedEndMinutes !== null ? (
-                            <div
-                              className="absolute left-3 right-3 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none"
-                              style={{
-                                top: selectionTop,
-                                height: selectionHeight,
-                              }}
-                            >
+                          <div
+                            ref={timelineRef}
+                            onPointerDown={handleTimelinePointerDown}
+                            className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none touch-none"
+                            style={{
+                              height:
+                                timeSlots.length * TIMELINE_SLOT_HEIGHT,
+                            }}
+                          >
+                            {timeSlots.map((slot, index) => (
                               <div
-                                onPointerDown={(event) =>
-                                  startDraggingSelection(event, 'resize-start')
-                                }
-                                className="absolute top-0 left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize"
-                              >
-                                <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
-                              </div>
+                                key={`row-${slot}`}
+                                className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-surface-container-high"
+                                style={{ top: index * TIMELINE_SLOT_HEIGHT }}
+                              />
+                            ))}
 
+                            {hasSelectedTimeRange &&
+                            selectedStartMinutes !== null &&
+                            selectedEndMinutes !== null ? (
                               <div
-                                onPointerDown={(event) =>
-                                  startDraggingSelection(event, 'move')
-                                }
-                                className={`flex h-full w-full items-center justify-between cursor-grab active:cursor-grabbing select-none ${
-                                  isCompactSelection ? 'px-5 py-2' : 'px-5 py-4'
-                                }`}
+                                className="absolute left-2 right-2 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none sm:left-3 sm:right-3"
+                                style={{
+                                  top: selectionTop,
+                                  height: selectionHeight,
+                                }}
                               >
-                                <div className="min-w-0 flex-1">
-                                  <div
-                                    className={`${
-                                      isCompactSelection
-                                        ? 'flex items-center gap-2'
-                                        : 'flex items-center'
-                                    }`}
-                                  >
-                                    <p
-                                      className={`truncate font-bold text-[#8b1f2b] ${
+                                <div
+                                  onPointerDown={(event) =>
+                                    startDraggingSelection(event, 'resize-start')
+                                  }
+                                  className="absolute top-0 left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize"
+                                >
+                                  <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                                </div>
+
+                                <div
+                                  onPointerDown={(event) =>
+                                    startDraggingSelection(event, 'move')
+                                  }
+                                  className={`flex h-full w-full items-center justify-between cursor-grab active:cursor-grabbing select-none ${
+                                    isCompactSelection ? 'px-3 py-2 sm:px-5' : 'px-3 py-3 sm:px-5 sm:py-4'
+                                  }`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div
+                                      className={`${
                                         isCompactSelection
-                                          ? 'text-[0.95rem]'
-                                          : 'text-[1.15rem]'
+                                          ? 'flex items-center gap-2'
+                                          : 'flex items-center'
                                       }`}
                                     >
-                                      {formatTimeLabel(startTime)} -{' '}
-                                      {formatTimeLabel(endTime)}
-                                    </p>
-                                    {isCompactSelection ? (
-                                      <p className="truncate text-[11px] font-medium text-[#8b1f2b]/75">
-                                        (Arrastra para mover la reservacion)
+                                      <p
+                                        className={`truncate font-bold text-[#8b1f2b] ${
+                                          isCompactSelection
+                                            ? 'text-sm sm:text-[0.95rem]'
+                                            : 'text-base sm:text-[1.15rem]'
+                                        }`}
+                                      >
+                                        {formatTimeLabel(startTime)} -{' '}
+                                        {formatTimeLabel(endTime)}
                                       </p>
-                                    ) : null}
+                                      {isCompactSelection ? (
+                                        <p className="hidden truncate text-[11px] font-medium text-[#8b1f2b]/75 sm:block">
+                                          (Arrastra para mover la reservacion)
+                                        </p>
+                                      ) : null}
+                                    </div>
                                   </div>
+                                  <span className="ml-3 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-bold text-[#8b1f2b] sm:ml-4 sm:px-3 sm:text-xs">
+                                    {formatDurationLabel(selectionDurationMinutes)}
+                                  </span>
                                 </div>
-                                <span className="ml-4 rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-[#8b1f2b]">
-                                  {formatDurationLabel(selectionDurationMinutes)}
-                                </span>
-                              </div>
 
-                              <div
-                                onPointerDown={(event) =>
-                                  startDraggingSelection(event, 'resize-end')
-                                }
-                                className="absolute bottom-0 left-1/2 h-4 w-4 -translate-x-1/2 translate-y-1/2 cursor-ns-resize"
-                              >
-                                <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                                <div
+                                  onPointerDown={(event) =>
+                                    startDraggingSelection(event, 'resize-end')
+                                  }
+                                  className="absolute bottom-0 left-1/2 h-4 w-4 -translate-x-1/2 translate-y-1/2 cursor-ns-resize"
+                                >
+                                  <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                                </div>
                               </div>
-                            </div>
-                          ) : null}
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -671,10 +679,10 @@ export function DashboardView({
           </div>
 
           <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-primary font-headline">
+            <h2 className="text-2xl font-bold text-primary font-headline sm:text-3xl">
               Calendario de ocupacion
             </h2>
-            <div className="flex items-start gap-4 rounded-2xl bg-surface-container-high p-6 text-primary">
+            <div className="flex items-start gap-4 rounded-2xl bg-surface-container-high p-5 text-primary sm:p-6">
               <span className="material-symbols-outlined">info</span>
               <div>
                 <p className="font-bold">Listo para reservar</p>
@@ -684,13 +692,13 @@ export function DashboardView({
                 </p>
               </div>
             </div>
-            <div className="space-y-4 rounded-3xl border border-surface-container bg-white p-6 shadow-sm">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="space-y-4 rounded-3xl border border-surface-container bg-white p-4 shadow-sm sm:p-6">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
                   <span className="material-symbols-outlined text-primary">
                     calendar_month
                   </span>
-                  <h3 className="font-bold text-primary font-headline">
+                  <h3 className="truncate font-bold text-primary font-headline">
                     {MONTH_LABEL.format(visibleMonth)}
                   </h3>
                 </div>
@@ -764,7 +772,7 @@ export function DashboardView({
                       type="button"
                       key={day}
                       onClick={() => selectCalendarDay(day)}
-                      className={`relative flex aspect-square items-center justify-center rounded-lg text-xs font-medium ${
+                      className={`relative flex aspect-square items-center justify-center rounded-lg text-[11px] font-medium sm:text-xs ${
                         isPastDay
                           ? 'cursor-not-allowed bg-surface-container-low text-outline-variant opacity-60'
                           : isSelected
@@ -794,7 +802,7 @@ export function DashboardView({
                   );
                 })}
               </div>
-              <div className="flex gap-4 border-t border-surface-container pt-4 text-[11px] font-semibold tracking-wider text-outline uppercase">
+              <div className="flex flex-wrap gap-4 border-t border-surface-container pt-4 text-[11px] font-semibold tracking-wider text-outline uppercase">
                 <div className="flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded bg-surface-container"></span>
                   <span>Disponible</span>
@@ -814,7 +822,7 @@ export function DashboardView({
 
         <section id="history-section" className="space-y-8">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <h2 className="text-3xl font-bold text-primary font-headline">
+            <h2 className="text-2xl font-bold text-primary font-headline sm:text-3xl">
               Historial de reservas
             </h2>
             <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface-variant">
@@ -822,7 +830,53 @@ export function DashboardView({
               <span>Actualizado hace 2 minutos</span>
             </div>
           </div>
-          <div className="overflow-hidden rounded-3xl bg-surface-container-low">
+
+          <div className="space-y-4 md:hidden">
+            {reservationHistory.map((entry) => (
+              <article
+                key={`${entry.user}-${entry.date}-${entry.time}`}
+                className="rounded-[1.5rem] bg-surface-container-low p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-base font-bold text-on-surface">
+                      {entry.user}
+                    </p>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                      {entry.space}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${getHistoryStatusClasses(
+                      entry.status,
+                    )}`}
+                  >
+                    {entry.status}
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
+                    <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
+                      Fecha
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-on-surface">
+                      {entry.date}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
+                    <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
+                      Horario
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-on-surface">
+                      {entry.time}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-3xl bg-surface-container-low md:block">
             <table className="w-full border-collapse text-left">
               <thead className="bg-surface-container-high">
                 <tr>

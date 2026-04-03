@@ -68,7 +68,7 @@ export function SuccessView({
                   <div>
                     <p className="text-sm text-on-surface-variant">Fecha</p>
                     <p className="text-lg font-semibold text-on-surface">
-                      24 de octubre de 2024
+                      24 de octubre de 2026
                     </p>
                   </div>
                 </div>

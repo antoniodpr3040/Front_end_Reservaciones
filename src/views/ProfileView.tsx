@@ -64,13 +64,13 @@ export function ProfileView() {
         onBackToSpaces={() => navigate('/dashboard')}
         onNavigateToReservations={() => navigate('/reservations')}
       />
-      <main className="mx-auto flex w-full max-w-7xl flex-grow flex-col px-4 pt-24 pb-16 md:px-8">
-        <section className="relative overflow-hidden rounded-[2rem] bg-primary px-8 py-10 text-white shadow-[0_32px_64px_-24px_rgba(0,30,64,0.35)] md:px-12">
+      <main className="mx-auto flex w-full max-w-7xl flex-grow flex-col px-4 pt-20 pb-14 sm:px-6 md:px-8 md:pt-24 md:pb-16">
+        <section className="relative overflow-hidden rounded-[2rem] bg-primary px-5 py-8 text-white shadow-[0_32px_64px_-24px_rgba(0,30,64,0.35)] sm:px-8 md:px-12 md:py-10">
           <div className="absolute top-0 right-0 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -bottom-12 left-20 h-36 w-36 rounded-full bg-primary-fixed-dim/20 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[1.75rem] border border-white/20 bg-white/10 text-3xl font-bold">
+            <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-6">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-[1.5rem] border border-white/20 bg-white/10 text-2xl font-bold sm:h-24 sm:w-24 sm:rounded-[1.75rem] sm:text-3xl">
                 {user?.avatarUrl ? (
                   <img
                     alt="Avatar del usuario"
@@ -85,10 +85,10 @@ export function ProfileView() {
                 <p className="text-sm font-semibold tracking-[0.16em] text-white/70 uppercase">
                   Perfil institucional
                 </p>
-                <h1 className="mt-2 text-4xl font-extrabold tracking-tight font-headline md:text-5xl">
+                <h1 className="mt-2 text-3xl font-extrabold tracking-tight font-headline sm:text-4xl md:text-5xl">
                   {user?.name ?? 'Usuario institucional'}
                 </h1>
-                <p className="mt-3 text-base text-white/80">
+                <p className="mt-3 break-words text-sm text-white/80 sm:text-base [overflow-wrap:anywhere]">
                   {user?.email ?? 'Correo no disponible'}
                 </p>
               </div>
@@ -110,7 +110,7 @@ export function ProfileView() {
           </div>
         </section>
 
-        <section className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-8 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
           <DetailCard
             icon="badge"
             label="Identificador"
@@ -133,9 +133,9 @@ export function ProfileView() {
           />
         </section>
 
-        <section className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_0.9fr]">
-          <div className="rounded-[2rem] bg-surface-container-low p-8 shadow-sm">
-            <div className="mb-8 flex items-center gap-3">
+        <section className="mt-8 grid grid-cols-1 gap-6 lg:mt-10 lg:grid-cols-[1.3fr_0.9fr]">
+          <div className="rounded-[2rem] bg-surface-container-low p-5 shadow-sm sm:p-6 md:p-8">
+            <div className="mb-6 flex items-start gap-3 md:mb-8 md:items-center">
               <div className="rounded-xl bg-primary-container p-3 text-primary">
                 <span className="material-symbols-outlined">person</span>
               </div>
@@ -150,7 +150,7 @@ export function ProfileView() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
               <div className="min-w-0 rounded-2xl border border-surface-container-high bg-white px-5 py-4">
                 <p className="text-xs font-bold tracking-[0.16em] text-on-surface-variant uppercase">
                   Nombre completo
@@ -186,8 +186,8 @@ export function ProfileView() {
             </div>
           </div>
 
-          <div className="rounded-[2rem] bg-surface-container-lowest p-8 shadow-[0_24px_48px_-24px_rgba(25,28,30,0.2)]">
-            <div className="mb-8 flex items-center gap-3">
+          <div className="rounded-[2rem] bg-surface-container-lowest p-5 shadow-[0_24px_48px_-24px_rgba(25,28,30,0.2)] sm:p-6 md:p-8">
+            <div className="mb-6 flex items-start gap-3 md:mb-8 md:items-center">
               <div className="rounded-xl bg-error-container p-3 text-on-error-container">
                 <span className="material-symbols-outlined">logout</span>
               </div>

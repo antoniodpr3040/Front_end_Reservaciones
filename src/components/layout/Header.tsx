@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import type { ActiveTab } from '../../types/navigation';
 import { useAuth } from '../../auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   activeTab?: ActiveTab;
@@ -14,7 +15,9 @@ export function Header({
   onNavigateToReservations,
 }: HeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const initials = user?.name
     .split(' ')
@@ -23,68 +26,81 @@ export function Header({
     .map((chunk) => chunk[0]?.toUpperCase())
     .join('');
 
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const navigationItems = [
+    {
+      label: 'Espacios',
+      onClick: onBackToSpaces,
+      isActive: activeTab === 'spaces',
+    },
+    {
+      label: 'Mis reservas',
+      onClick: onNavigateToReservations,
+      isActive: activeTab === 'reservations',
+    },
+  ].filter((item) => Boolean(item.onClick));
+
   return (
-    <header className="fixed top-0 z-50 h-16 w-full bg-white/80 shadow-sm backdrop-blur-xl">
-      <div className="flex h-full max-w-full items-center justify-between px-8">
-        <div className="flex items-center gap-8">
-          <span
-            className="cursor-pointer bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-xl font-bold tracking-tight text-transparent font-headline"
+    <header className="fixed top-0 z-50 w-full bg-white/85 shadow-sm backdrop-blur-xl">
+      <div className="mx-auto flex min-h-16 w-full max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-8">
+          <button
+            type="button"
             onClick={onBackToSpaces}
+            className="min-w-0 bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-left text-base font-bold tracking-tight text-transparent font-headline sm:text-xl"
           >
-            DoDate Reservaciones
-          </span>
+            <span className="block truncate">DoDate Reservaciones</span>
+          </button>
           <nav className="hidden items-center gap-6 text-sm font-semibold tracking-tight font-headline md:flex">
-            <button
-              type="button"
-              onClick={onBackToSpaces}
-              className={
-                activeTab === 'spaces'
-                  ? 'border-b-2 border-blue-900 pb-1 font-bold text-blue-900'
-                  : 'text-slate-500 transition-colors hover:text-blue-900'
-              }
-            >
-              Espacios
-            </button>
-            <button
-              type="button"
-              onClick={onNavigateToReservations}
-              className={
-                activeTab === 'reservations'
-                  ? 'border-b-2 border-blue-900 pb-1 font-bold text-blue-900'
-                  : 'text-slate-500 transition-colors hover:text-blue-900'
-              }
-            >
-              Mis reservas
-            </button>
+            {navigationItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.onClick}
+                className={
+                  item.isActive
+                    ? 'border-b-2 border-blue-900 pb-1 font-bold text-blue-900'
+                    : 'text-slate-500 transition-colors hover:text-blue-900'
+                }
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative hidden sm:block">
+
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className="relative hidden lg:block">
             <span className="material-symbols-outlined absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
               search
             </span>
             <input
               type="text"
               placeholder="Buscar espacios..."
-              className="w-64 rounded-lg border-none bg-slate-100 py-1.5 pr-4 pl-10 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20"
+              className="w-56 rounded-lg border-none bg-slate-100 py-2 pr-4 pl-10 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 xl:w-64"
             />
           </div>
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95"
+            className="hidden rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95 sm:inline-flex"
+            aria-label="Notificaciones"
           >
             <span className="material-symbols-outlined">notifications</span>
           </button>
           <button
             type="button"
-            className="rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95"
+            className="hidden rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95 sm:inline-flex"
+            aria-label="Ayuda"
           >
             <span className="material-symbols-outlined">help</span>
           </button>
           <button
             type="button"
             onClick={() => navigate('/profile')}
-            className={`ml-2 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border transition-all active:scale-95 ${
+            className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border transition-all active:scale-95 sm:h-10 sm:w-10 ${
               activeTab === 'profile'
                 ? 'border-primary shadow-[0_0_0_4px_rgba(0,30,64,0.08)]'
                 : 'border-slate-200 hover:border-slate-300'
@@ -104,8 +120,74 @@ export function Header({
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen((currentValue) => !currentValue)}
+            className="inline-flex rounded-lg p-2 text-slate-500 transition-all hover:bg-slate-100 active:scale-95 md:hidden"
+            aria-expanded={isMobileMenuOpen}
+            aria-label="Abrir menu de navegacion"
+          >
+            <span className="material-symbols-outlined">
+              {isMobileMenuOpen ? 'close' : 'menu'}
+            </span>
+          </button>
         </div>
       </div>
+
+      {isMobileMenuOpen ? (
+        <div className="border-t border-slate-200/80 bg-white px-4 py-4 shadow-sm md:hidden">
+          <div className="space-y-3">
+            {navigationItems.length > 0 ? (
+              <nav className="grid gap-2">
+                {navigationItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+                      item.isActive
+                        ? 'bg-primary text-white'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            ) : null}
+
+            <div className="relative">
+              <span className="material-symbols-outlined absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Buscar espacios..."
+                className="w-full rounded-2xl border-none bg-slate-100 py-3 pr-4 pl-10 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
+              >
+                <span className="material-symbols-outlined text-base">
+                  notifications
+                </span>
+                Notificaciones
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
+              >
+                <span className="material-symbols-outlined text-base">help</span>
+                Ayuda
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }
