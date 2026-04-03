@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../auth/AuthContext';
 import { HistoryRow } from '../components/dashboard/HistoryRow';
 import { SpaceCard } from '../components/dashboard/SpaceCard';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
 import {
-  calendarDays,
   dashboardSpaces,
   reservationHistory,
 } from '../data/mockData';
@@ -15,11 +15,273 @@ interface DashboardViewProps {
   onNavigateToReservations: () => void;
 }
 
+const MONTH_LABEL = new Intl.DateTimeFormat('es-SV', {
+  month: 'long',
+  year: 'numeric',
+});
+
+const FULL_DATE_LABEL = new Intl.DateTimeFormat('es-SV', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+const occupiedDays = new Set([24, 26]);
+const pendingDays = new Set([25]);
+const SLOT_INTERVAL_MINUTES = 30;
+const DEFAULT_DAY_START_MINUTES = 5 * 60;
+const DAY_END_MINUTES = 20 * 60;
+const TIMELINE_SLOT_HEIGHT = 44;
+
+type DragMode = 'create' | 'move' | 'resize-start' | 'resize-end';
+
+interface DragState {
+  mode: DragMode;
+  anchorMinutes?: number;
+  pointerStartY: number;
+  startMinutes: number;
+  endMinutes: number;
+}
+
+function pad(value: number) {
+  return value.toString().padStart(2, '0');
+}
+
+function toDateInputValue(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function fromDateInputValue(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+
+  return new Date(year, month - 1, day);
+}
+
+function createTimeSlots(startMinutes: number) {
+  const options: string[] = [];
+
+  for (
+    let minutes = startMinutes;
+    minutes < DAY_END_MINUTES;
+    minutes += SLOT_INTERVAL_MINUTES
+  ) {
+    options.push(`${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`);
+  }
+
+  return options;
+}
+
+function toMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+
+  return hours * 60 + minutes;
+}
+
+function addMinutes(value: string, minutesToAdd: number) {
+  const totalMinutes = toMinutes(value) + minutesToAdd;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${pad(hours)}:${pad(minutes)}`;
+}
+
+function formatTimeLabel(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const normalizedHours = hours % 12 || 12;
+
+  return `${normalizedHours}:${pad(minutes)} ${suffix}`;
+}
+
+function isSameDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function minutesToTimeValue(totalMinutes: number) {
+  return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function roundUpToNextSlot(minutes: number) {
+  return Math.ceil(minutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+}
+
 export function DashboardView({
   onConfirmBooking,
   onNavigateToReservations,
 }: DashboardViewProps) {
+  const { user } = useAuth();
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const today = new Date();
+  const todayAtMidnight = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const [selectedSpace, setSelectedSpace] = useState('');
+  const [selectedDate, setSelectedDate] = useState(toDateInputValue(today));
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [visibleMonth, setVisibleMonth] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1),
+  );
+
+  const daysInMonth = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth() + 1,
+    0,
+  ).getDate();
+  const firstDayOffset = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth(),
+    1,
+  ).getDay();
+  const calendarCells = Array.from({ length: firstDayOffset + daysInMonth }, (_, index) =>
+    index < firstDayOffset ? null : index - firstDayOffset + 1,
+  );
+  const selectedDateParts = selectedDate.split('-').map(Number);
+  const selectedDateObject = fromDateInputValue(selectedDate);
+  const isSelectedToday = isSameDay(selectedDateObject, todayAtMidnight);
+  const currentMinutes = today.getHours() * 60 + today.getMinutes();
+  const timelineStartMinutes = isSelectedToday
+    ? Math.max(
+        DEFAULT_DAY_START_MINUTES,
+        roundUpToNextSlot(currentMinutes),
+      )
+    : DEFAULT_DAY_START_MINUTES;
+  const timeSlots =
+    timelineStartMinutes < DAY_END_MINUTES
+      ? createTimeSlots(timelineStartMinutes)
+      : [];
+  const hasTimelineAvailability = timeSlots.length > 0;
+  const selectedDay = selectedDateParts[2];
+  const isSelectedMonth =
+    selectedDateParts[0] === visibleMonth.getFullYear() &&
+    selectedDateParts[1] === visibleMonth.getMonth() + 1;
+  const selectedDateLabel = FULL_DATE_LABEL.format(selectedDateObject);
+  const hasSelectedTimeRange = Boolean(startTime && endTime);
+  const selectedStartMinutes = startTime ? toMinutes(startTime) : null;
+  const selectedEndMinutes = endTime ? toMinutes(endTime) : null;
+  const selectionDurationMinutes =
+    selectedStartMinutes !== null && selectedEndMinutes !== null
+      ? selectedEndMinutes - selectedStartMinutes
+      : 0;
+  const isCompactSelection = selectionDurationMinutes <= SLOT_INTERVAL_MINUTES;
+  const selectionTop =
+    selectedStartMinutes === null
+      ? 0
+      : ((selectedStartMinutes - timelineStartMinutes) / SLOT_INTERVAL_MINUTES) *
+        TIMELINE_SLOT_HEIGHT;
+  const selectionHeight =
+    selectedStartMinutes === null || selectedEndMinutes === null
+      ? 0
+      : ((selectedEndMinutes - selectedStartMinutes) / SLOT_INTERVAL_MINUTES) *
+        TIMELINE_SLOT_HEIGHT;
+  const reservationSummary =
+    hasSelectedTimeRange
+      ? `De ${formatTimeLabel(startTime)} a ${formatTimeLabel(endTime)}`
+      : 'Arrastra sobre la agenda para crear un bloque.';
+
+  const setReservationRange = (startMinutes: number, endMinutes: number) => {
+    setStartTime(minutesToTimeValue(startMinutes));
+    setEndTime(minutesToTimeValue(endMinutes));
+  };
+
+  const getMinutesFromPointer = (clientY: number) => {
+    const timeline = timelineRef.current;
+
+    if (!timeline) {
+      return timelineStartMinutes;
+    }
+
+    const rect = timeline.getBoundingClientRect();
+    const maxOffset =
+      ((DAY_END_MINUTES - timelineStartMinutes) / SLOT_INTERVAL_MINUTES) *
+        TIMELINE_SLOT_HEIGHT -
+      1;
+    const offsetY = clamp(clientY - rect.top, 0, maxOffset);
+    const intervalIndex = Math.floor(offsetY / TIMELINE_SLOT_HEIGHT);
+
+    return timelineStartMinutes + intervalIndex * SLOT_INTERVAL_MINUTES;
+  };
+
+  useEffect(() => {
+    if (!dragState) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (dragState.mode === 'create') {
+        const currentMinutes = getMinutesFromPointer(event.clientY);
+        const anchorMinutes = dragState.anchorMinutes ?? dragState.startMinutes;
+        const nextStart = Math.min(anchorMinutes, currentMinutes);
+        const nextEnd = Math.min(
+          Math.max(anchorMinutes, currentMinutes) + SLOT_INTERVAL_MINUTES,
+          DAY_END_MINUTES,
+        );
+
+        setReservationRange(nextStart, nextEnd);
+        return;
+      }
+
+      if (dragState.mode === 'move') {
+        const deltaIntervals = Math.round(
+          (event.clientY - dragState.pointerStartY) / TIMELINE_SLOT_HEIGHT,
+        );
+        const duration = dragState.endMinutes - dragState.startMinutes;
+        const nextStart = clamp(
+          dragState.startMinutes + deltaIntervals * SLOT_INTERVAL_MINUTES,
+          timelineStartMinutes,
+          DAY_END_MINUTES - duration,
+        );
+
+        setReservationRange(nextStart, nextStart + duration);
+        return;
+      }
+
+      if (dragState.mode === 'resize-start') {
+        const candidateStart = getMinutesFromPointer(event.clientY);
+        const nextStart = clamp(
+          candidateStart,
+          timelineStartMinutes,
+          dragState.endMinutes - SLOT_INTERVAL_MINUTES,
+        );
+
+        setReservationRange(nextStart, dragState.endMinutes);
+        return;
+      }
+
+      const candidateEnd = getMinutesFromPointer(event.clientY) + SLOT_INTERVAL_MINUTES;
+      const nextEnd = clamp(
+        candidateEnd,
+        dragState.startMinutes + SLOT_INTERVAL_MINUTES,
+        DAY_END_MINUTES,
+      );
+
+      setReservationRange(dragState.startMinutes, nextEnd);
+    };
+
+    const handlePointerUp = () => {
+      setDragState(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [dragState, timelineStartMinutes]);
 
   const handleReserve = (space: SpaceCardData) => {
     if (space.status === 'Ocupado') {
@@ -31,6 +293,69 @@ export function DashboardView({
     document
       .getElementById('booking-section')
       ?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const resetTimeSelection = () => {
+    setStartTime('');
+    setEndTime('');
+    setDragState(null);
+  };
+
+  const handleDateChange = (value: string) => {
+    setSelectedDate(value);
+    setVisibleMonth(fromDateInputValue(value));
+    resetTimeSelection();
+  };
+
+  const selectCalendarDay = (day: number) => {
+    const nextSelectedDate = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth(),
+      day,
+    );
+    if (nextSelectedDate < todayAtMidnight) {
+      return;
+    }
+
+    handleDateChange(toDateInputValue(nextSelectedDate));
+  };
+
+  const handleTimelinePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    const startMinutes = getMinutesFromPointer(event.clientY);
+    const endMinutes = Math.min(
+      startMinutes + SLOT_INTERVAL_MINUTES,
+      DAY_END_MINUTES,
+    );
+
+    setReservationRange(startMinutes, endMinutes);
+    setDragState({
+      mode: 'create',
+      anchorMinutes: startMinutes,
+      pointerStartY: event.clientY,
+      startMinutes,
+      endMinutes,
+    });
+  };
+
+  const startDraggingSelection = (
+    event: React.PointerEvent<HTMLDivElement>,
+    mode: DragMode,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (selectedStartMinutes === null || selectedEndMinutes === null) {
+      return;
+    }
+
+    setDragState({
+      mode,
+      pointerStartY: event.clientY,
+      startMinutes: selectedStartMinutes,
+      endMinutes: selectedEndMinutes,
+    });
   };
 
   return (
@@ -83,12 +408,23 @@ export function DashboardView({
                 <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
                   Nombre del usuario
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Dr. Alberto Casas"
-                  className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none transition-all focus:ring-2 focus:ring-surface-tint/20"
-                />
+                <div className="relative">
+                  <span className="material-symbols-outlined pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-outline">
+                    verified_user
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={user?.name ?? 'Usuario institucional'}
+                    readOnly
+                    aria-readonly="true"
+                    className="w-full rounded-xl border-none bg-surface-container-lowest py-3 pr-4 pl-12 text-on-surface outline-none transition-all focus:ring-2 focus:ring-surface-tint/20"
+                  />
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  Este nombre proviene de tu sesion autenticada y no se puede
+                  editar desde el formulario.
+                </p>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
@@ -114,34 +450,216 @@ export function DashboardView({
                   <input
                     type="date"
                     required
+                    min={toDateInputValue(today)}
+                    value={selectedDate}
+                    onChange={(event) => handleDateChange(event.target.value)}
                     className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none focus:ring-2 focus:ring-surface-tint/20"
                   />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1 space-y-2">
-                    <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
-                      Inicio
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none focus:ring-2 focus:ring-surface-tint/20"
-                    />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDateChange(toDateInputValue(today))}
+                      className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
+                    >
+                      Hoy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(today.getDate() + 1);
+                        handleDateChange(toDateInputValue(tomorrow));
+                      }}
+                      className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
+                    >
+                      Manana
+                    </button>
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <p className="text-xs capitalize text-on-surface-variant">
+                    {selectedDateLabel}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
                     <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
-                      Fin
+                      Horario de reservacion
                     </label>
-                    <input
-                      type="time"
-                      required
-                      className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none focus:ring-2 focus:ring-surface-tint/20"
-                    />
+                    <p className="mt-2 text-sm text-on-surface-variant">
+                      Arrastra sobre la agenda para crear un bloque y luego
+                      muévelo o ajusta sus extremos.
+                    </p>
+                  </div>
+                  {hasSelectedTimeRange ? (
+                    <button
+                      type="button"
+                      onClick={resetTimeSelection}
+                      className="rounded-full bg-surface-container-lowest px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-high"
+                    >
+                      Limpiar horario
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="overflow-hidden rounded-[1.75rem] border border-surface-container-high bg-surface-container-lowest">
+                  <div className="flex flex-col gap-3 border-b border-surface-container-high px-5 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs font-bold tracking-[0.16em] text-on-surface-variant uppercase">
+                        Agenda del dia
+                      </p>
+                      <p className="mt-2 text-lg font-bold capitalize text-primary">
+                        {selectedDateLabel}
+                      </p>
+                    </div>
+                    <div className="rounded-full bg-surface-container-high px-4 py-2 text-sm font-semibold text-primary">
+                      {hasTimelineAvailability
+                        ? reservationSummary
+                        : 'No hay horarios disponibles para este dia.'}
+                    </div>
+                  </div>
+
+                  <div className="max-h-[26rem] overflow-y-auto px-4 py-3">
+                    {hasTimelineAvailability ? (
+                      <div className="flex min-w-[28rem] gap-4">
+                      <div className="w-20 shrink-0">
+                        {timeSlots.map((slot) => (
+                          <div
+                            key={`label-${slot}`}
+                            className="flex h-11 items-start justify-end pr-2 pt-1 text-xs font-semibold text-outline-variant"
+                          >
+                            {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        ref={timelineRef}
+                        onPointerDown={handleTimelinePointerDown}
+                        className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none"
+                        style={{
+                          height:
+                            timeSlots.length * TIMELINE_SLOT_HEIGHT,
+                        }}
+                      >
+                        {timeSlots.map((slot, index) => (
+                          <div
+                            key={`row-${slot}`}
+                            className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-surface-container-high"
+                            style={{ top: index * TIMELINE_SLOT_HEIGHT }}
+                          />
+                        ))}
+
+                        {hasSelectedTimeRange &&
+                        selectedStartMinutes !== null &&
+                        selectedEndMinutes !== null ? (
+                          <div
+                            className="absolute left-3 right-3 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none"
+                            style={{
+                              top: selectionTop,
+                              height: selectionHeight,
+                            }}
+                          >
+                            <div
+                              onPointerDown={(event) =>
+                                startDraggingSelection(event, 'resize-start')
+                              }
+                              className="absolute top-0 left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize"
+                            >
+                              <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                            </div>
+                            <div
+                              onPointerDown={(event) =>
+                                startDraggingSelection(event, 'move')
+                              }
+                              className={`flex h-full w-full justify-between cursor-grab active:cursor-grabbing select-none ${
+                                isCompactSelection
+                                  ? 'items-center px-5 py-2'
+                                  : 'items-center px-5 py-4'
+                              }`}
+                            >
+                              <div>
+                                <div
+                                  className={`${
+                                    isCompactSelection
+                                      ? 'flex items-center gap-2'
+                                      : 'space-y-2'
+                                  }`}
+                                >
+                                  <p
+                                    className={`font-bold text-[#8b1f2b] ${
+                                      isCompactSelection
+                                        ? 'text-[0.95rem]'
+                                        : 'text-[1.15rem]'
+                                    }`}
+                                  >
+                                    {formatTimeLabel(startTime)} -{' '}
+                                    {formatTimeLabel(endTime)}
+                                  </p>
+                                  {isCompactSelection ? (
+                                    <p className="text-xs font-medium text-[#8b1f2b]/75">
+                                      (Arrastra para mover la reservacion)
+                                    </p>
+                                  ) : null}
+                                </div>
+                                {!isCompactSelection ? (
+                                  <p className="text-sm font-medium text-[#8b1f2b]/80">
+                                    Arrastra para mover la reservacion
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-[#8b1f2b]">
+                                {Math.round(selectionDurationMinutes / 60) > 0
+                                  ? `${selectionDurationMinutes / 60} h`
+                                  : '30 min'}
+                              </span>
+                            </div>
+                            <div
+                              onPointerDown={(event) =>
+                                startDraggingSelection(event, 'resize-end')
+                              }
+                              className="absolute bottom-0 left-1/2 h-4 w-4 -translate-x-1/2 translate-y-1/2 cursor-ns-resize"
+                            >
+                              <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    ) : (
+                      <div className="rounded-3xl bg-surface-container-low px-6 py-8 text-sm text-on-surface-variant">
+                        {isSelectedToday
+                          ? 'Las franjas de hoy ya terminaron. Selecciona otro dia para crear una reservacion.'
+                          : 'No hay franjas configuradas para este dia.'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
+              <div className="rounded-2xl bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
+                Reservaras el espacio el{' '}
+                <span className="font-semibold capitalize text-on-surface">
+                  {selectedDateLabel}
+                </span>{' '}
+                {hasSelectedTimeRange ? (
+                  <>
+                    de{' '}
+                    <span className="font-semibold text-on-surface">
+                      {formatTimeLabel(startTime)}
+                    </span>{' '}
+                    a{' '}
+                    <span className="font-semibold text-on-surface">
+                      {formatTimeLabel(endTime)}
+                    </span>
+                    .
+                  </>
+                ) : (
+                  <>y aun falta definir el bloque horario.</>
+                )}
+              </div>
               <button
                 type="submit"
+                disabled={!hasSelectedTimeRange}
                 className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95"
               >
                 Confirmar reserva
@@ -170,13 +688,23 @@ export function DashboardView({
                     calendar_month
                   </span>
                   <h3 className="font-bold text-primary font-headline">
-                    Mayo 2024
+                    {MONTH_LABEL.format(visibleMonth)}
                   </h3>
                 </div>
                 <div className="flex gap-1">
                   <button
                     type="button"
+                    onClick={() =>
+                      setVisibleMonth(
+                        new Date(
+                          visibleMonth.getFullYear(),
+                          visibleMonth.getMonth() - 1,
+                          1,
+                        ),
+                      )
+                    }
                     className="rounded-full p-1 text-outline transition-colors hover:bg-surface-container-high"
+                    aria-label="Ver mes anterior"
                   >
                     <span className="material-symbols-outlined">
                       chevron_left
@@ -184,7 +712,17 @@ export function DashboardView({
                   </button>
                   <button
                     type="button"
+                    onClick={() =>
+                      setVisibleMonth(
+                        new Date(
+                          visibleMonth.getFullYear(),
+                          visibleMonth.getMonth() + 1,
+                          1,
+                        ),
+                      )
+                    }
                     className="rounded-full p-1 text-outline transition-colors hover:bg-surface-container-high"
+                    aria-label="Ver mes siguiente"
                   >
                     <span className="material-symbols-outlined">
                       chevron_right
@@ -202,22 +740,46 @@ export function DashboardView({
                 <div>Sab</div>
               </div>
               <div className="calendar-grid gap-1">
-                {calendarDays.map((day) => {
-                  const isOccupied = day === 24 || day === 26;
-                  const isPending = day === 25;
+                {calendarCells.map((day, index) => {
+                  if (day === null) {
+                    return <div key={`empty-${index}`} className="aspect-square" />;
+                  }
+
+                  const dayDate = new Date(
+                    visibleMonth.getFullYear(),
+                    visibleMonth.getMonth(),
+                    day,
+                  );
+                  const isPastDay = dayDate < todayAtMidnight;
+                  const isToday = isSameDay(dayDate, todayAtMidnight);
+                  const isOccupied = occupiedDays.has(day);
+                  const isPending = pendingDays.has(day);
+                  const isSelected = isSelectedMonth && selectedDay === day;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={day}
+                      onClick={() => selectCalendarDay(day)}
                       className={`relative flex aspect-square items-center justify-center rounded-lg text-xs font-medium ${
-                        isOccupied
+                        isPastDay
+                          ? 'cursor-not-allowed bg-surface-container-low text-outline-variant opacity-60'
+                          : isSelected
+                          ? 'bg-primary font-bold text-white ring-2 ring-primary/20'
+                          : isOccupied
                           ? 'bg-primary font-bold text-white'
                           : isPending
                             ? 'bg-secondary-container text-on-secondary-container'
                             : 'cursor-pointer text-on-surface hover:bg-surface-container'
                       }`}
+                      aria-pressed={isSelected}
+                      aria-label={`Seleccionar ${day} de ${MONTH_LABEL.format(visibleMonth)}`}
+                      disabled={isPastDay}
                     >
                       {day}
+                      {isToday && !isSelected ? (
+                        <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                      ) : null}
                       {(isOccupied || isPending) && (
                         <span
                           className={`absolute bottom-1 h-1 w-1 rounded-full ${
@@ -225,7 +787,7 @@ export function DashboardView({
                           }`}
                         ></span>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
