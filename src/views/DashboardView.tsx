@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createReservation } from '../api/reservations';
 import { useAuth } from '../auth/AuthContext';
 import { HistoryRow } from '../components/dashboard/HistoryRow';
 import { SpaceCard } from '../components/dashboard/SpaceCard';
@@ -90,6 +91,10 @@ function addMinutes(value: string, minutesToAdd: number) {
   return `${pad(hours)}:${pad(minutes)}`;
 }
 
+function toReservationDateTime(dateValue: string, timeValue: string) {
+  return `${dateValue}T${timeValue}:00`;
+}
+
 function formatTimeLabel(value: string) {
   const [hours, minutes] = value.split(':').map(Number);
   const suffix = hours >= 12 ? 'PM' : 'AM';
@@ -147,6 +152,7 @@ export function DashboardView({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1),
   );
@@ -206,6 +212,9 @@ export function DashboardView({
     hasSelectedTimeRange
       ? `De ${formatTimeLabel(startTime)} a ${formatTimeLabel(endTime)}`
       : 'Arrastra sobre la agenda para crear un bloque.';
+  const selectedSpaceDetails = dashboardSpaces.find(
+    (space) => space.value === selectedSpace,
+  );
 
   const setReservationRange = (startMinutes: number, endMinutes: number) => {
     setStartTime(minutesToTimeValue(startMinutes));
@@ -374,6 +383,41 @@ export function DashboardView({
     });
   };
 
+  const handleSubmitReservation = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    if (!selectedSpaceDetails || !startTime || !endTime) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await createReservation({
+        attendees: user?.email ? [user.email] : [],
+        description: [
+          'Reservacion creada desde DoDate.',
+          user?.name ? `Usuario: ${user.name}` : '',
+          user?.email ? `Correo: ${user.email}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        end: toReservationDateTime(selectedDate, endTime),
+        location: selectedSpaceDetails.title,
+        start: toReservationDateTime(selectedDate, startTime),
+        title: `Reserva - ${selectedSpaceDetails.title}`,
+      });
+      onConfirmBooking(true);
+    } catch (error) {
+      console.error(error);
+      onConfirmBooking(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header
@@ -415,10 +459,7 @@ export function DashboardView({
             </h2>
             <form
               className="space-y-6"
-              onSubmit={(event) => {
-                event.preventDefault();
-                onConfirmBooking(true);
-              }}
+              onSubmit={handleSubmitReservation}
             >
               <div className="space-y-2">
                 <label className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">
@@ -670,10 +711,10 @@ export function DashboardView({
               </div>
               <button
                 type="submit"
-                disabled={!hasSelectedTimeRange}
+                disabled={!hasSelectedTimeRange || isSubmitting}
                 className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all enabled:hover:opacity-90 enabled:active:scale-95 disabled:pointer-events-none disabled:cursor-not-allowed disabled:scale-100 disabled:opacity-70"
               >
-                Confirmar reserva
+                {isSubmitting ? 'Confirmando reserva...' : 'Confirmar reserva'}
               </button>
             </form>
           </div>

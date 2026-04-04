@@ -1,4 +1,7 @@
 interface ReservationRowProps {
+  actionDisabled?: boolean;
+  actionHref?: string;
+  actionLabel?: string;
   completed?: boolean;
   date: string;
   highlight?: boolean;
@@ -10,6 +13,9 @@ interface ReservationRowProps {
 }
 
 export function ReservationRow({
+  actionDisabled,
+  actionHref,
+  actionLabel,
   completed,
   date,
   highlight,
@@ -19,6 +25,8 @@ export function ReservationRow({
   time,
   title,
 }: ReservationRowProps) {
+  const actionText = actionLabel ?? (completed ? 'Repetir reserva' : 'Cancelar reserva');
+
   return (
     <tr
       className={`group transition-colors hover:bg-surface-container-low ${
@@ -63,26 +71,46 @@ export function ReservationRow({
       <td className="px-6 py-6">
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
-            completed
+            status === 'Cancelada'
+              ? 'bg-error-container text-error'
+              : completed
               ? 'bg-surface-container-high text-on-surface-variant'
               : 'bg-secondary-container text-on-secondary-container'
           }`}
         >
-          {!completed && (
+          {!completed && status !== 'Cancelada' && (
             <span className="mr-2 h-1.5 w-1.5 rounded-full bg-primary"></span>
           )}
           {status}
         </span>
       </td>
       <td className="px-6 py-6 text-right">
-        <button
-          type="button"
-          className={`rounded-lg px-4 py-2 text-sm font-bold transition-all active:scale-95 hover:bg-surface-container-high ${
-            completed ? 'text-primary' : 'text-error'
-          }`}
-        >
-          {completed ? 'Repetir reserva' : 'Cancelar reserva'}
-        </button>
+        {actionHref && !actionDisabled ? (
+          <a
+            href={actionHref}
+            target="_blank"
+            rel="noreferrer"
+            className={`inline-flex rounded-lg px-4 py-2 text-sm font-bold transition-all hover:bg-surface-container-high ${
+              completed ? 'text-primary' : 'text-primary'
+            }`}
+          >
+            {actionText}
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled={actionDisabled}
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+              actionDisabled
+                ? 'cursor-not-allowed text-on-surface-variant opacity-60'
+                : completed
+                  ? 'text-primary hover:bg-surface-container-high active:scale-95'
+                  : 'text-error hover:bg-surface-container-high active:scale-95'
+            }`}
+          >
+            {actionText}
+          </button>
+        )}
       </td>
     </tr>
   );
