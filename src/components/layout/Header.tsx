@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ActiveTab } from '../../types/navigation';
 import { useAuth } from '../../auth/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AppLogo } from '../branding/AppLogo';
 
 interface HeaderProps {
   activeTab?: ActiveTab;
@@ -50,9 +51,12 @@ export function Header({
           <button
             type="button"
             onClick={onBackToSpaces}
-            className="min-w-0 bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-left text-base font-bold tracking-tight text-transparent font-headline sm:text-xl"
+            className="flex min-w-0 items-center gap-3 text-left"
           >
-            <span className="block truncate">DoDate Reservaciones</span>
+            <AppLogo className="h-11 w-auto shrink-0" />
+            <span className="block truncate bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-base font-bold tracking-tight text-transparent font-headline sm:text-xl">
+              DoDate Reservaciones
+            </span>
           </button>
           <nav className="hidden items-center gap-6 text-sm font-semibold tracking-tight font-headline md:flex">
             {navigationItems.map((item) => (

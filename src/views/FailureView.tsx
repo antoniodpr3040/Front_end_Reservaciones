@@ -1,4 +1,5 @@
 import { Footer } from '../components/layout/Footer';
+import { AppLogo } from '../components/branding/AppLogo';
 
 interface FailureViewProps {
   onBackToSpaces: () => void;
@@ -12,7 +13,8 @@ export function FailureView({
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-slate-50/80 px-8 shadow-sm backdrop-blur-xl">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <AppLogo className="h-10 w-auto" />
           <span className="bg-gradient-to-br from-[#001e40] to-[#003366] bg-clip-text text-xl font-bold tracking-tight text-transparent font-headline">
             DoDate Reservaciones
           </span>

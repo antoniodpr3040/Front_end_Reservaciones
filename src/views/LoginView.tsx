@@ -1,3 +1,5 @@
+import { AppLogo } from '../components/branding/AppLogo';
+
 interface LoginViewProps {
   onLogin: () => void;
 }
@@ -6,10 +8,8 @@ export function LoginView({ onLogin }: LoginViewProps) {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="w-full bg-[#f7f9fb] px-6 py-4">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-2xl text-primary">
-            account_balance
-          </span>
+        <div className="flex items-center gap-3">
+          <AppLogo className="h-12 w-auto" />
           <span className="text-xl font-bold tracking-tight text-[#191c1e] font-headline">
             DoDate Reservaciones
           </span>
@@ -19,10 +19,8 @@ export function LoginView({ onLogin }: LoginViewProps) {
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-surface-container-lowest p-8 shadow-[0_32px_64px_-15px_rgba(25,28,30,0.06)] md:p-12">
             <div className="mb-10 text-center">
-              <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-xl bg-surface-container-low">
-                <span className="material-symbols-outlined text-4xl text-primary">
-                  architecture
-                </span>
+              <div className="mb-6 inline-flex items-center justify-center">
+                <AppLogo className="h-24 w-auto drop-shadow-[0_18px_28px_rgba(0,51,102,0.18)]" />
               </div>
               <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-on-surface font-headline">
                 Iniciar sesion
@@ -33,7 +31,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
             </div>
             <div className="space-y-6">
               <p className="text-center text-sm leading-relaxed text-on-surface-variant">
-                Ingresa con tu correo institucional
+                Ingresa con tu correo, solo funcionan los correos personales.
               </p>
               <button
                 type="button"
@@ -56,8 +54,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
             </div>
             <div className="mt-10 border-t border-surface-container-high pt-8 text-center">
               <p className="text-xs leading-relaxed text-on-surface-variant">
-                Este es un sistema de gestion institucional. El acceso no
-                autorizado esta estrictamente prohibido y monitoreado.
+                Este es un sistema de gestion para la reservacion de espacios.
               </p>
             </div>
           </div>

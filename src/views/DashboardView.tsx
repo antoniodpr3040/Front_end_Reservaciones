@@ -671,7 +671,7 @@ export function DashboardView({
               <button
                 type="submit"
                 disabled={!hasSelectedTimeRange}
-                className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full rounded-xl bg-primary-gradient py-4 text-lg font-bold text-white shadow-lg shadow-primary/20 transition-all enabled:hover:opacity-90 enabled:active:scale-95 disabled:pointer-events-none disabled:cursor-not-allowed disabled:scale-100 disabled:opacity-70"
               >
                 Confirmar reserva
               </button>
