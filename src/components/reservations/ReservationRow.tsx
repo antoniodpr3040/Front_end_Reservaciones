@@ -7,6 +7,9 @@ interface ReservationRowProps {
   highlight?: boolean;
   icon: string;
   location: string;
+  onActionClick?: () => void;
+  secondaryActionHref?: string;
+  secondaryActionLabel?: string;
   status: string;
   time: string;
   title: string;
@@ -21,6 +24,9 @@ export function ReservationRow({
   highlight,
   icon,
   location,
+  onActionClick,
+  secondaryActionHref,
+  secondaryActionLabel,
   status,
   time,
   title,
@@ -85,32 +91,56 @@ export function ReservationRow({
         </span>
       </td>
       <td className="px-6 py-6 text-right">
-        {actionHref && !actionDisabled ? (
-          <a
-            href={actionHref}
-            target="_blank"
-            rel="noreferrer"
-            className={`inline-flex rounded-lg px-4 py-2 text-sm font-bold transition-all hover:bg-surface-container-high ${
-              completed ? 'text-primary' : 'text-primary'
-            }`}
-          >
-            {actionText}
-          </a>
-        ) : (
-          <button
-            type="button"
-            disabled={actionDisabled}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-              actionDisabled
-                ? 'cursor-not-allowed text-on-surface-variant opacity-60'
-                : completed
-                  ? 'text-primary hover:bg-surface-container-high active:scale-95'
+        <div className="flex flex-col items-end gap-2">
+          {onActionClick ? (
+            <button
+              type="button"
+              onClick={onActionClick}
+              disabled={actionDisabled}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                actionDisabled
+                  ? 'cursor-not-allowed text-on-surface-variant opacity-60'
                   : 'text-error hover:bg-surface-container-high active:scale-95'
-            }`}
-          >
-            {actionText}
-          </button>
-        )}
+              }`}
+            >
+              {actionText}
+            </button>
+          ) : actionHref && !actionDisabled ? (
+            <a
+              href={actionHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex rounded-lg px-4 py-2 text-sm font-bold text-primary transition-all hover:bg-surface-container-high"
+            >
+              {actionText}
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled={actionDisabled}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                actionDisabled
+                  ? 'cursor-not-allowed text-on-surface-variant opacity-60'
+                  : completed
+                    ? 'text-primary hover:bg-surface-container-high active:scale-95'
+                    : 'text-error hover:bg-surface-container-high active:scale-95'
+              }`}
+            >
+              {actionText}
+            </button>
+          )}
+
+          {secondaryActionHref ? (
+            <a
+              href={secondaryActionHref}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex rounded-lg px-3 py-1.5 text-xs font-bold text-primary transition-all hover:bg-surface-container-high"
+            >
+              {secondaryActionLabel ?? 'Ver en Outlook'}
+            </a>
+          ) : null}
+        </div>
       </td>
     </tr>
   );

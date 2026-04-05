@@ -18,6 +18,14 @@ export interface CreateReservationResponse {
   web_link?: string | null;
 }
 
+export interface CancelReservationInput {
+  reason: string;
+}
+
+export interface CancelReservationResponse {
+  message?: string;
+}
+
 export interface ReservationRecordResponse {
   attendees: string[];
   cancelled_at?: string | null;
@@ -120,4 +128,68 @@ export async function listReservations() {
   }
 
   return response.json() as Promise<ReservationRecordResponse[]>;
+}
+
+export async function cancelReservation(
+  reservationId: string,
+  payload: CancelReservationInput,
+) {
+  const encodedReservationId = encodeURIComponent(reservationId);
+  const requestBody = JSON.stringify({
+    reason: payload.reason,
+    cancellation_reason: payload.reason,
+    status: 'cancelled',
+  });
+  const strategies = [
+    {
+      url: `${OUTLOOK_RESERVATIONS_URL}/${encodedReservationId}`,
+      method: 'DELETE',
+    },
+    {
+      url: `${OUTLOOK_RESERVATIONS_URL}/${encodedReservationId}/cancel`,
+      method: 'POST',
+    },
+    {
+      url: `${OUTLOOK_RESERVATIONS_URL}/${encodedReservationId}`,
+      method: 'PATCH',
+    },
+  ] as const;
+
+  let fallbackError = 'No se pudo cancelar la reservacion.';
+
+  for (const strategy of strategies) {
+    const response = await fetch(strategy.url, {
+      method: strategy.method,
+      credentials: 'include',
+      headers: buildAuthHeaders({
+        'Content-Type': 'application/json',
+      }),
+      body: requestBody,
+    });
+
+    if (response.ok) {
+      if (response.status === 204) {
+        return { message: 'Reservacion cancelada.' } satisfies CancelReservationResponse;
+      }
+
+      try {
+        return await response.json() as CancelReservationResponse;
+      } catch {
+        return { message: 'Reservacion cancelada.' } satisfies CancelReservationResponse;
+      }
+    }
+
+    try {
+      const data = await response.json();
+      fallbackError = readErrorMessage(data) ?? fallbackError;
+    } catch {
+      // Ignore non-JSON responses and preserve the fallback message.
+    }
+
+    if (response.status !== 404 && response.status !== 405) {
+      throw new Error(fallbackError);
+    }
+  }
+
+  throw new Error(fallbackError);
 }

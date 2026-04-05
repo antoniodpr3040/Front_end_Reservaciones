@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { createReservation } from '../api/reservations';
+import {
+  createReservation,
+  listReservations,
+  type ReservationRecordResponse,
+} from '../api/reservations';
 import { useAuth } from '../auth/AuthContext';
 import { HistoryRow } from '../components/dashboard/HistoryRow';
 import { SpaceCard } from '../components/dashboard/SpaceCard';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
-import {
-  dashboardSpaces,
-  reservationHistory,
-} from '../data/mockData';
+import { dashboardSpaces, reservationHistory } from '../data/mockData';
 import type { SpaceCardData } from '../types/reservations';
 
 interface DashboardViewProps {
   onConfirmBooking: (success: boolean) => void;
   onNavigateToReservations: () => void;
+}
+
+interface OccupiedTimeBlock {
+  endMinutes: number;
+  id: string;
+  startMinutes: number;
 }
 
 const MONTH_LABEL = new Intl.DateTimeFormat('es-SV', {
@@ -28,21 +35,24 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat('es-SV', {
   year: 'numeric',
 });
 
-const occupiedDays = new Set([24, 26]);
-const pendingDays = new Set([25]);
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DAY_START_MINUTES = 5 * 60;
 const DAY_END_MINUTES = 20 * 60;
 const TIMELINE_SLOT_HEIGHT = 44;
+const SPACE_MATCHERS: Record<string, string[]> = {
+  biblioteca: ['biblioteca'],
+  laboratorio: ['laboratorio'],
+  mentoria: ['mentoria', 'mentoria a', 'sala de mentoria'],
+};
 
 type DragMode = 'create' | 'move' | 'resize-start' | 'resize-end';
 
 interface DragState {
-  mode: DragMode;
   anchorMinutes?: number;
+  endMinutes: number;
+  mode: DragMode;
   pointerStartY: number;
   startMinutes: number;
-  endMinutes: number;
 }
 
 function pad(value: number) {
@@ -83,14 +93,6 @@ function minutesToTimeValue(totalMinutes: number) {
   return `${pad(Math.floor(totalMinutes / 60))}:${pad(totalMinutes % 60)}`;
 }
 
-function addMinutes(value: string, minutesToAdd: number) {
-  const totalMinutes = toMinutes(value) + minutesToAdd;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return `${pad(hours)}:${pad(minutes)}`;
-}
-
 function toReservationDateTime(dateValue: string, timeValue: string) {
   return `${dateValue}T${timeValue}:00`;
 }
@@ -129,6 +131,73 @@ function roundUpToNextSlot(minutes: number) {
   return Math.ceil(minutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
 }
 
+function roundDownToSlot(minutes: number) {
+  return Math.floor(minutes / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function resolveSpaceValueFromText(value: string) {
+  const normalizedValue = normalizeText(value);
+
+  for (const [spaceValue, aliases] of Object.entries(SPACE_MATCHERS)) {
+    if (aliases.some((alias) => normalizedValue.includes(alias))) {
+      return spaceValue;
+    }
+  }
+
+  return undefined;
+}
+
+function getReservationSpaceValue(reservation: ReservationRecordResponse) {
+  return resolveSpaceValueFromText(
+    `${reservation.title} ${reservation.location ?? ''}`,
+  );
+}
+
+function isCancelledReservation(reservation: ReservationRecordResponse) {
+  return reservation.status.toLowerCase() === 'cancelled';
+}
+
+function isActiveReservation(reservation: ReservationRecordResponse, now: Date) {
+  return !isCancelledReservation(reservation) && new Date(reservation.end) > now;
+}
+
+function rangesOverlap(
+  startMinutes: number,
+  endMinutes: number,
+  blockStartMinutes: number,
+  blockEndMinutes: number,
+) {
+  return startMinutes < blockEndMinutes && endMinutes > blockStartMinutes;
+}
+
+function isRangeAvailable(
+  startMinutes: number,
+  endMinutes: number,
+  occupiedBlocks: OccupiedTimeBlock[],
+) {
+  return occupiedBlocks.every(
+    (block) =>
+      !rangesOverlap(
+        startMinutes,
+        endMinutes,
+        block.startMinutes,
+        block.endMinutes,
+      ),
+  );
+}
+
+function getMinutesFromDate(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
 function getHistoryStatusClasses(status: 'Completada' | 'En proceso') {
   return status === 'Completada'
     ? 'bg-green-100 text-green-800'
@@ -152,10 +221,41 @@ export function DashboardView({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [isLoadingReservations, setIsLoadingReservations] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reservations, setReservations] = useState<ReservationRecordResponse[]>([]);
+  const [reservationsError, setReservationsError] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1),
   );
+
+  const loadReservations = async () => {
+    setIsLoadingReservations(true);
+    setReservationsError('');
+
+    try {
+      const data = await listReservations();
+      setReservations(data);
+    } catch (error) {
+      setReservations([]);
+      setReservationsError(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo cargar la disponibilidad actual.',
+      );
+    } finally {
+      setIsLoadingReservations(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadReservations();
+  }, []);
+
+  const availableSpaces: SpaceCardData[] = dashboardSpaces.map((space) => ({
+    ...space,
+    status: 'Disponible',
+  }));
 
   const daysInMonth = new Date(
     visibleMonth.getFullYear(),
@@ -167,18 +267,16 @@ export function DashboardView({
     visibleMonth.getMonth(),
     1,
   ).getDay();
-  const calendarCells = Array.from({ length: firstDayOffset + daysInMonth }, (_, index) =>
-    index < firstDayOffset ? null : index - firstDayOffset + 1,
+  const calendarCells = Array.from(
+    { length: firstDayOffset + daysInMonth },
+    (_, index) => (index < firstDayOffset ? null : index - firstDayOffset + 1),
   );
   const selectedDateParts = selectedDate.split('-').map(Number);
   const selectedDateObject = fromDateInputValue(selectedDate);
   const isSelectedToday = isSameDay(selectedDateObject, todayAtMidnight);
   const currentMinutes = today.getHours() * 60 + today.getMinutes();
   const timelineStartMinutes = isSelectedToday
-    ? Math.max(
-        DEFAULT_DAY_START_MINUTES,
-        roundUpToNextSlot(currentMinutes),
-      )
+    ? Math.max(DEFAULT_DAY_START_MINUTES, roundUpToNextSlot(currentMinutes))
     : DEFAULT_DAY_START_MINUTES;
   const timeSlots =
     timelineStartMinutes < DAY_END_MINUTES
@@ -208,18 +306,105 @@ export function DashboardView({
       ? 0
       : ((selectedEndMinutes - selectedStartMinutes) / SLOT_INTERVAL_MINUTES) *
         TIMELINE_SLOT_HEIGHT;
-  const reservationSummary =
-    hasSelectedTimeRange
-      ? `De ${formatTimeLabel(startTime)} a ${formatTimeLabel(endTime)}`
-      : 'Arrastra sobre la agenda para crear un bloque.';
-  const selectedSpaceDetails = dashboardSpaces.find(
+  const selectedSpaceDetails = availableSpaces.find(
     (space) => space.value === selectedSpace,
   );
+  const now = new Date();
+  const relevantReservations = reservations.filter((reservation) => {
+    if (!isActiveReservation(reservation, now)) {
+      return false;
+    }
+
+    const reservationSpace = getReservationSpaceValue(reservation);
+
+    if (selectedSpace && reservationSpace !== selectedSpace) {
+      return false;
+    }
+
+    return true;
+  });
+  const occupiedTimeBlocks = relevantReservations
+    .filter((reservation) => {
+      const reservationDate = new Date(reservation.start);
+
+      return isSameDay(reservationDate, selectedDateObject);
+    })
+    .map((reservation) => {
+      const startDate = new Date(reservation.start);
+      const endDate = new Date(reservation.end);
+
+      return {
+        id: reservation.reservation_id,
+        startMinutes: clamp(
+          roundDownToSlot(getMinutesFromDate(startDate)),
+          timelineStartMinutes,
+          DAY_END_MINUTES,
+        ),
+        endMinutes: clamp(
+          roundUpToNextSlot(getMinutesFromDate(endDate)),
+          timelineStartMinutes,
+          DAY_END_MINUTES,
+        ),
+      };
+    })
+    .filter((block) => block.endMinutes > block.startMinutes)
+    .sort((left, right) => left.startMinutes - right.startMinutes);
+  const occupiedDays = new Set(
+    relevantReservations
+      .filter((reservation) => {
+        const reservationDate = new Date(reservation.start);
+
+        return (
+          reservationDate.getFullYear() === visibleMonth.getFullYear() &&
+          reservationDate.getMonth() === visibleMonth.getMonth()
+        );
+      })
+      .map((reservation) => new Date(reservation.start).getDate()),
+  );
+  const reservationSummary = !selectedSpace
+    ? 'Selecciona un espacio para revisar la disponibilidad.'
+    : isLoadingReservations
+      ? 'Cargando horarios ocupados...'
+      : reservationsError
+        ? 'No se pudo validar la disponibilidad actual.'
+        : hasSelectedTimeRange
+          ? `De ${formatTimeLabel(startTime)} a ${formatTimeLabel(endTime)}`
+          : occupiedTimeBlocks.length > 0
+            ? 'Las franjas oscuras ya estan reservadas y no se pueden usar.'
+            : 'Arrastra sobre la agenda para crear un bloque.';
+  const canInteractWithTimeline =
+    hasTimelineAvailability &&
+    Boolean(selectedSpace) &&
+    !isLoadingReservations &&
+    !reservationsError;
 
   const setReservationRange = (startMinutes: number, endMinutes: number) => {
     setStartTime(minutesToTimeValue(startMinutes));
     setEndTime(minutesToTimeValue(endMinutes));
   };
+
+  const resetTimeSelection = () => {
+    setStartTime('');
+    setEndTime('');
+    setDragState(null);
+  };
+
+  const handleSpaceChange = (value: string) => {
+    setSelectedSpace(value);
+    resetTimeSelection();
+  };
+
+  useEffect(() => {
+    if (
+      selectedStartMinutes === null ||
+      selectedEndMinutes === null ||
+      isRangeAvailable(selectedStartMinutes, selectedEndMinutes, occupiedTimeBlocks)
+    ) {
+      return;
+    }
+
+    resetTimeSelection();
+  }, [occupiedTimeBlocks, selectedEndMinutes, selectedStartMinutes]);
 
   const getMinutesFromPointer = (clientY: number) => {
     const timeline = timelineRef.current;
@@ -246,15 +431,50 @@ export function DashboardView({
 
     const handlePointerMove = (event: PointerEvent) => {
       if (dragState.mode === 'create') {
-        const currentMinutes = getMinutesFromPointer(event.clientY);
+        const pointerMinutes = getMinutesFromPointer(event.clientY);
         const anchorMinutes = dragState.anchorMinutes ?? dragState.startMinutes;
-        const nextStart = Math.min(anchorMinutes, currentMinutes);
-        const nextEnd = Math.min(
-          Math.max(anchorMinutes, currentMinutes) + SLOT_INTERVAL_MINUTES,
-          DAY_END_MINUTES,
-        );
 
-        setReservationRange(nextStart, nextEnd);
+        if (pointerMinutes >= anchorMinutes) {
+          const requestedEnd = Math.min(
+            pointerMinutes + SLOT_INTERVAL_MINUTES,
+            DAY_END_MINUTES,
+          );
+          const blockingReservation = occupiedTimeBlocks.find((block) =>
+            rangesOverlap(
+              anchorMinutes,
+              requestedEnd,
+              block.startMinutes,
+              block.endMinutes,
+            ),
+          );
+          const nextEnd = blockingReservation
+            ? blockingReservation.startMinutes
+            : requestedEnd;
+
+          if (nextEnd > anchorMinutes) {
+            setReservationRange(anchorMinutes, nextEnd);
+          }
+
+          return;
+        }
+
+        const requestedStart = pointerMinutes;
+        const blockingReservation = [...occupiedTimeBlocks].reverse().find((block) =>
+          rangesOverlap(
+            requestedStart,
+            anchorMinutes + SLOT_INTERVAL_MINUTES,
+            block.startMinutes,
+            block.endMinutes,
+          ),
+        );
+        const nextStart = blockingReservation
+          ? blockingReservation.endMinutes
+          : requestedStart;
+
+        if (nextStart < anchorMinutes + SLOT_INTERVAL_MINUTES) {
+          setReservationRange(nextStart, anchorMinutes + SLOT_INTERVAL_MINUTES);
+        }
+
         return;
       }
 
@@ -268,31 +488,40 @@ export function DashboardView({
           timelineStartMinutes,
           DAY_END_MINUTES - duration,
         );
+        const nextEnd = nextStart + duration;
 
-        setReservationRange(nextStart, nextStart + duration);
+        if (isRangeAvailable(nextStart, nextEnd, occupiedTimeBlocks)) {
+          setReservationRange(nextStart, nextEnd);
+        }
+
         return;
       }
 
       if (dragState.mode === 'resize-start') {
-        const candidateStart = getMinutesFromPointer(event.clientY);
-        const nextStart = clamp(
-          candidateStart,
+        const candidateStart = clamp(
+          getMinutesFromPointer(event.clientY),
           timelineStartMinutes,
           dragState.endMinutes - SLOT_INTERVAL_MINUTES,
         );
 
-        setReservationRange(nextStart, dragState.endMinutes);
+        if (
+          isRangeAvailable(candidateStart, dragState.endMinutes, occupiedTimeBlocks)
+        ) {
+          setReservationRange(candidateStart, dragState.endMinutes);
+        }
+
         return;
       }
 
-      const candidateEnd = getMinutesFromPointer(event.clientY) + SLOT_INTERVAL_MINUTES;
-      const nextEnd = clamp(
-        candidateEnd,
+      const candidateEnd = clamp(
+        getMinutesFromPointer(event.clientY) + SLOT_INTERVAL_MINUTES,
         dragState.startMinutes + SLOT_INTERVAL_MINUTES,
         DAY_END_MINUTES,
       );
 
-      setReservationRange(dragState.startMinutes, nextEnd);
+      if (isRangeAvailable(dragState.startMinutes, candidateEnd, occupiedTimeBlocks)) {
+        setReservationRange(dragState.startMinutes, candidateEnd);
+      }
     };
 
     const handlePointerUp = () => {
@@ -306,24 +535,13 @@ export function DashboardView({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [dragState, timelineStartMinutes]);
+  }, [dragState, occupiedTimeBlocks, timelineStartMinutes]);
 
   const handleReserve = (space: SpaceCardData) => {
-    if (space.status === 'Ocupado') {
-      onConfirmBooking(false);
-      return;
-    }
-
-    setSelectedSpace(space.value);
+    handleSpaceChange(space.value);
     document
       .getElementById('booking-section')
       ?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const resetTimeSelection = () => {
-    setStartTime('');
-    setEndTime('');
-    setDragState(null);
   };
 
   const handleDateChange = (value: string) => {
@@ -338,6 +556,7 @@ export function DashboardView({
       visibleMonth.getMonth(),
       day,
     );
+
     if (nextSelectedDate < todayAtMidnight) {
       return;
     }
@@ -346,6 +565,10 @@ export function DashboardView({
   };
 
   const handleTimelinePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!canInteractWithTimeline) {
+      return;
+    }
+
     event.preventDefault();
 
     const startMinutes = getMinutesFromPointer(event.clientY);
@@ -353,6 +576,10 @@ export function DashboardView({
       startMinutes + SLOT_INTERVAL_MINUTES,
       DAY_END_MINUTES,
     );
+
+    if (!isRangeAvailable(startMinutes, endMinutes, occupiedTimeBlocks)) {
+      return;
+    }
 
     setReservationRange(startMinutes, endMinutes);
     setDragState({
@@ -388,7 +615,12 @@ export function DashboardView({
   ) => {
     event.preventDefault();
 
-    if (!selectedSpaceDetails || !startTime || !endTime) {
+    if (
+      !selectedSpaceDetails ||
+      !startTime ||
+      !endTime ||
+      !isRangeAvailable(toMinutes(startTime), toMinutes(endTime), occupiedTimeBlocks)
+    ) {
       return;
     }
 
@@ -409,6 +641,7 @@ export function DashboardView({
         start: toReservationDateTime(selectedDate, startTime),
         title: `Reserva - ${selectedSpaceDetails.title}`,
       });
+      await loadReservations();
       onConfirmBooking(true);
     } catch (error) {
       console.error(error);
@@ -436,7 +669,7 @@ export function DashboardView({
         </section>
 
         <section className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          {dashboardSpaces.map((space) => (
+          {availableSpaces.map((space) => (
             <SpaceCard
               key={space.value}
               title={space.title}
@@ -490,13 +723,15 @@ export function DashboardView({
                 <select
                   required
                   value={selectedSpace}
-                  onChange={(event) => setSelectedSpace(event.target.value)}
+                  onChange={(event) => handleSpaceChange(event.target.value)}
                   className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none focus:ring-2 focus:ring-surface-tint/20"
                 >
                   <option value="">Seleccione un espacio...</option>
-                  <option value="biblioteca">Biblioteca central</option>
-                  <option value="laboratorio">Laboratorio de ciencias</option>
-                  <option value="mentoria">Sala de mentoria A</option>
+                  {availableSpaces.map((space) => (
+                    <option key={space.value} value={space.value}>
+                      {space.title}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -544,8 +779,8 @@ export function DashboardView({
                       Horario de reservacion
                     </label>
                     <p className="mt-2 text-sm text-on-surface-variant">
-                      Arrastra sobre la agenda para crear un bloque y luego
-                      muévelo o ajusta sus extremos.
+                      Las franjas bloqueadas ya tienen reserva. Arrastra solo
+                      sobre los espacios libres.
                     </p>
                   </div>
                   {hasSelectedTimeRange ? (
@@ -558,6 +793,12 @@ export function DashboardView({
                     </button>
                   ) : null}
                 </div>
+
+                {reservationsError ? (
+                  <div className="rounded-2xl border border-error/15 bg-error-container/50 px-4 py-3 text-sm text-error">
+                    {reservationsError}
+                  </div>
+                ) : null}
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-surface-container-high bg-surface-container-lowest">
                   <div className="flex flex-col gap-3 border-b border-surface-container-high px-4 py-4 sm:px-5 md:flex-row md:items-center md:justify-between">
@@ -581,23 +822,26 @@ export function DashboardView({
                       <div className="min-w-[21.5rem] sm:min-w-[24rem]">
                         <div className="flex gap-3 sm:gap-4">
                           <div className="w-14 shrink-0 sm:w-20">
-                          {timeSlots.map((slot) => (
-                            <div
-                              key={`label-${slot}`}
-                              className="flex h-11 items-start justify-end pr-1 pt-1 text-[10px] font-semibold text-outline-variant sm:pr-2 sm:text-xs"
-                            >
-                              {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
-                            </div>
-                          ))}
+                            {timeSlots.map((slot) => (
+                              <div
+                                key={`label-${slot}`}
+                                className="flex h-11 items-start justify-end pr-1 pt-1 text-[10px] font-semibold text-outline-variant sm:pr-2 sm:text-xs"
+                              >
+                                {slot.endsWith(':00') ? formatTimeLabel(slot) : ''}
+                              </div>
+                            ))}
                           </div>
 
                           <div
                             ref={timelineRef}
                             onPointerDown={handleTimelinePointerDown}
-                            className="relative flex-1 cursor-crosshair rounded-[1.5rem] bg-white select-none touch-none"
+                            className={`relative flex-1 rounded-[1.5rem] bg-white select-none touch-none ${
+                              canInteractWithTimeline
+                                ? 'cursor-crosshair'
+                                : 'cursor-not-allowed'
+                            }`}
                             style={{
-                              height:
-                                timeSlots.length * TIMELINE_SLOT_HEIGHT,
+                              height: timeSlots.length * TIMELINE_SLOT_HEIGHT,
                             }}
                           >
                             {timeSlots.map((slot, index) => (
@@ -608,11 +852,57 @@ export function DashboardView({
                               />
                             ))}
 
+                            {occupiedTimeBlocks.map((block) => {
+                              const blockTop =
+                                ((block.startMinutes - timelineStartMinutes) /
+                                  SLOT_INTERVAL_MINUTES) *
+                                TIMELINE_SLOT_HEIGHT;
+                              const blockHeight =
+                                ((block.endMinutes - block.startMinutes) /
+                                  SLOT_INTERVAL_MINUTES) *
+                                TIMELINE_SLOT_HEIGHT;
+                              const blockIsCompact =
+                                block.endMinutes - block.startMinutes <=
+                                SLOT_INTERVAL_MINUTES;
+
+                              return (
+                                <div
+                                  key={block.id}
+                                  onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                  className="absolute left-2 right-2 z-10 flex cursor-not-allowed items-center rounded-3xl border border-slate-300 bg-slate-200/95 px-3 text-slate-700 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.75)] sm:left-3 sm:right-3 sm:px-4"
+                                  style={{
+                                    top: blockTop,
+                                    height: blockHeight,
+                                  }}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-bold uppercase tracking-[0.16em]">
+                                      Bloqueado
+                                    </p>
+                                    {!blockIsCompact ? (
+                                      <p className="mt-1 truncate text-sm font-semibold">
+                                        {formatTimeLabel(
+                                          minutesToTimeValue(block.startMinutes),
+                                        )}{' '}
+                                        -{' '}
+                                        {formatTimeLabel(
+                                          minutesToTimeValue(block.endMinutes),
+                                        )}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
                             {hasSelectedTimeRange &&
                             selectedStartMinutes !== null &&
                             selectedEndMinutes !== null ? (
                               <div
-                                className="absolute left-2 right-2 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none sm:left-3 sm:right-3"
+                                className="absolute left-2 right-2 z-20 rounded-3xl bg-[#ef8f98]/75 shadow-[0_24px_48px_-30px_rgba(171,31,45,0.75)] ring-1 ring-[#e06a75] cursor-grab touch-none select-none sm:left-3 sm:right-3"
                                 style={{
                                   top: selectionTop,
                                   height: selectionHeight,
@@ -632,7 +922,9 @@ export function DashboardView({
                                     startDraggingSelection(event, 'move')
                                   }
                                   className={`flex h-full w-full items-center justify-between cursor-grab active:cursor-grabbing select-none ${
-                                    isCompactSelection ? 'px-3 py-2 sm:px-5' : 'px-3 py-3 sm:px-5 sm:py-4'
+                                    isCompactSelection
+                                      ? 'px-3 py-2 sm:px-5'
+                                      : 'px-3 py-3 sm:px-5 sm:py-4'
                                   }`}
                                 >
                                   <div className="min-w-0 flex-1">
@@ -655,7 +947,7 @@ export function DashboardView({
                                       </p>
                                       {isCompactSelection ? (
                                         <p className="hidden truncate text-[11px] font-medium text-[#8b1f2b]/75 sm:block">
-                                          (Arrastra para mover la reservacion)
+                                          Arrastra para mover la reservacion
                                         </p>
                                       ) : null}
                                     </div>
@@ -673,6 +965,13 @@ export function DashboardView({
                                 >
                                   <span className="absolute inset-0 rounded-full border-2 border-[#ef8f98] bg-white shadow-sm" />
                                 </div>
+                              </div>
+                            ) : null}
+
+                            {!selectedSpace ? (
+                              <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[1.5rem] bg-white/72 px-6 text-center text-sm font-semibold text-on-surface-variant">
+                                Selecciona un espacio para visualizar y bloquear
+                                los horarios ya reservados.
                               </div>
                             ) : null}
                           </div>
@@ -718,7 +1017,6 @@ export function DashboardView({
               </button>
             </form>
           </div>
-
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-primary font-headline sm:text-3xl">
               Calendario de ocupacion
@@ -726,10 +1024,10 @@ export function DashboardView({
             <div className="flex items-start gap-4 rounded-2xl bg-surface-container-high p-5 text-primary sm:p-6">
               <span className="material-symbols-outlined">info</span>
               <div>
-                <p className="font-bold">Listo para reservar</p>
+                <p className="font-bold">Bloques reservados</p>
                 <p className="text-sm opacity-90">
-                  Completa el formulario para validar la disponibilidad en
-                  tiempo real.
+                  Los dias marcados tienen al menos una reservacion activa para
+                  el espacio seleccionado.
                 </p>
               </div>
             </div>
@@ -805,7 +1103,6 @@ export function DashboardView({
                   const isPastDay = dayDate < todayAtMidnight;
                   const isToday = isSameDay(dayDate, todayAtMidnight);
                   const isOccupied = occupiedDays.has(day);
-                  const isPending = pendingDays.has(day);
                   const isSelected = isSelectedMonth && selectedDay === day;
 
                   return (
@@ -817,12 +1114,10 @@ export function DashboardView({
                         isPastDay
                           ? 'cursor-not-allowed bg-surface-container-low text-outline-variant opacity-60'
                           : isSelected
-                          ? 'bg-primary font-bold text-white ring-2 ring-primary/20'
-                          : isOccupied
-                          ? 'bg-primary font-bold text-white'
-                          : isPending
-                            ? 'bg-secondary-container text-on-secondary-container'
-                            : 'cursor-pointer text-on-surface hover:bg-surface-container'
+                            ? 'bg-primary font-bold text-white ring-2 ring-primary/20'
+                            : isOccupied
+                              ? 'bg-primary/85 font-bold text-white'
+                              : 'cursor-pointer text-on-surface hover:bg-surface-container'
                       }`}
                       aria-pressed={isSelected}
                       aria-label={`Seleccionar ${day} de ${MONTH_LABEL.format(visibleMonth)}`}
@@ -832,13 +1127,9 @@ export function DashboardView({
                       {isToday && !isSelected ? (
                         <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
                       ) : null}
-                      {(isOccupied || isPending) && (
-                        <span
-                          className={`absolute bottom-1 h-1 w-1 rounded-full ${
-                            isPending ? 'bg-on-secondary-container' : 'bg-white'
-                          }`}
-                        ></span>
-                      )}
+                      {isOccupied ? (
+                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-white"></span>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -850,11 +1141,7 @@ export function DashboardView({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded bg-primary"></span>
-                  <span>Ocupado</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-secondary-container"></span>
-                  <span>En proceso</span>
+                  <span>Con reservas</span>
                 </div>
               </div>
             </div>

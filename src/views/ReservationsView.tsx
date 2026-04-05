@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  cancelReservation,
   listReservations,
   type ReservationRecordResponse,
 } from '../api/reservations';
@@ -13,12 +14,14 @@ interface ReservationCardViewModel {
   actionDisabled?: boolean;
   actionHref?: string;
   actionLabel: string;
+  canCancel: boolean;
   completed?: boolean;
   date: string;
   highlight?: boolean;
   id: string;
   icon: string;
   location: string;
+  outlookHref?: string;
   sortTime: number;
   status: string;
   time: string;
@@ -55,15 +58,21 @@ function toReservationViewModel(
   const isActive = !isCancelled && !isCompleted;
 
   return {
-    actionDisabled: isCancelled || !reservation.web_link,
-    actionHref: reservation.web_link ?? undefined,
-    actionLabel: isCancelled ? 'Cancelada' : 'Ver en Outlook',
+    actionDisabled: isCancelled,
+    actionHref: isCompleted ? reservation.web_link ?? undefined : undefined,
+    actionLabel: isCancelled
+      ? 'Cancelada'
+      : isActive
+        ? 'Cancelar reserva'
+        : 'Ver en Outlook',
+    canCancel: isActive,
     completed: !isActive,
     date: DATE_LABEL.format(startDate),
     highlight: isActive,
     id: reservation.reservation_id,
     icon: isCancelled ? 'event_busy' : isCompleted ? 'task_alt' : 'event_available',
     location: reservation.location?.trim() || 'Ubicacion no especificada',
+    outlookHref: isActive ? reservation.web_link ?? undefined : undefined,
     sortTime: startDate.getTime(),
     status: isCancelled ? 'Cancelada' : isCompleted ? 'Completada' : 'Activa',
     time: formatReservationTime(startDate, endDate),
@@ -75,7 +84,12 @@ export function ReservationsView({
   onBackToSpaces,
 }: ReservationsViewProps) {
   const [activeFilter, setActiveFilter] = useState<ReservationFilter>('all');
+  const [cancelErrorMessage, setCancelErrorMessage] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSuccessMessage, setCancelSuccessMessage] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<ReservationCardViewModel | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [reservations, setReservations] = useState<ReservationCardViewModel[]>([]);
 
@@ -131,6 +145,57 @@ export function ReservationsView({
       : 'bg-secondary-container text-on-secondary-container';
   };
 
+  const closeCancelModal = () => {
+    if (isCancelling) {
+      return;
+    }
+
+    setCancelTarget(null);
+    setCancelReason('');
+    setCancelErrorMessage('');
+  };
+
+  const openCancelModal = (reservation: ReservationCardViewModel) => {
+    setCancelTarget(reservation);
+    setCancelReason('');
+    setCancelErrorMessage('');
+    setCancelSuccessMessage('');
+  };
+
+  const handleConfirmCancellation = async () => {
+    if (!cancelTarget) {
+      return;
+    }
+
+    const trimmedReason = cancelReason.trim();
+
+    if (!trimmedReason) {
+      setCancelErrorMessage('Debes indicar el motivo de cancelacion.');
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelErrorMessage('');
+
+    try {
+      await cancelReservation(cancelTarget.id, {
+        reason: trimmedReason,
+      });
+      setCancelTarget(null);
+      setCancelReason('');
+      setCancelSuccessMessage('La reservacion fue cancelada correctamente.');
+      await loadReservations();
+    } catch (error) {
+      setCancelErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo cancelar la reservacion.',
+      );
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <Header
@@ -149,6 +214,12 @@ export function ReservationsView({
           </p>
         </div>
         <div className="space-y-8">
+          {cancelSuccessMessage ? (
+            <div className="rounded-[1.5rem] border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-800">
+              {cancelSuccessMessage}
+            </div>
+          ) : null}
+
           <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface-container-low p-1.5">
               <button
@@ -282,7 +353,28 @@ export function ReservationsView({
                             <p className="mt-1 font-semibold">{reservation.time}</p>
                           </div>
                         </div>
-                        {reservation.actionHref && !reservation.actionDisabled ? (
+
+                        {reservation.canCancel ? (
+                          <div className="mt-4 space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => openCancelModal(reservation)}
+                              className="inline-flex w-full items-center justify-center rounded-2xl bg-error-container px-4 py-3 text-sm font-bold text-error transition-all hover:shadow-sm active:scale-95"
+                            >
+                              {reservation.actionLabel}
+                            </button>
+                            {reservation.outlookHref ? (
+                              <a
+                                href={reservation.outlookHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex w-full items-center justify-center rounded-2xl bg-surface-container-high px-4 py-3 text-sm font-bold text-primary transition-all hover:shadow-sm active:scale-95"
+                              >
+                                Ver en Outlook
+                              </a>
+                            ) : null}
+                          </div>
+                        ) : reservation.actionHref && !reservation.actionDisabled ? (
                           <a
                             href={reservation.actionHref}
                             target="_blank"
@@ -334,14 +426,21 @@ export function ReservationsView({
                         actionDisabled={reservation.actionDisabled}
                         actionHref={reservation.actionHref}
                         actionLabel={reservation.actionLabel}
-                        title={reservation.title}
-                        location={reservation.location}
-                        date={reservation.date}
-                        time={reservation.time}
-                        status={reservation.status}
-                        icon={reservation.icon}
-                        highlight={reservation.highlight}
                         completed={reservation.completed}
+                        date={reservation.date}
+                        highlight={reservation.highlight}
+                        icon={reservation.icon}
+                        location={reservation.location}
+                        onActionClick={
+                          reservation.canCancel
+                            ? () => openCancelModal(reservation)
+                            : undefined
+                        }
+                        secondaryActionHref={reservation.outlookHref}
+                        secondaryActionLabel="Ver en Outlook"
+                        status={reservation.status}
+                        time={reservation.time}
+                        title={reservation.title}
                       />
                     ))}
                   </tbody>
@@ -394,6 +493,77 @@ export function ReservationsView({
           </div>
         </div>
       </main>
+      {cancelTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6">
+          <div className="w-full max-w-lg rounded-[1.75rem] bg-white p-6 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold tracking-[0.14em] text-error uppercase">
+                  Cancelar reserva
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-primary font-headline">
+                  {cancelTarget.title}
+                </h2>
+                <p className="mt-2 text-sm text-on-surface-variant">
+                  {cancelTarget.date} · {cancelTarget.time}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCancelModal}
+                disabled={isCancelling}
+                className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high"
+                aria-label="Cerrar modal de cancelacion"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <label
+                htmlFor="cancel-reason"
+                className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase"
+              >
+                Motivo de cancelacion
+              </label>
+              <textarea
+                id="cancel-reason"
+                rows={4}
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="Escribe por que deseas cancelar esta reservacion."
+                className="w-full rounded-2xl border border-surface-container bg-surface-container-lowest px-4 py-3 text-sm text-on-surface outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+              {cancelErrorMessage ? (
+                <p className="text-sm font-medium text-error">{cancelErrorMessage}</p>
+              ) : (
+                <p className="text-xs text-on-surface-variant">
+                  Este motivo se enviara junto con la solicitud de cancelacion.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeCancelModal}
+                disabled={isCancelling}
+                className="rounded-2xl bg-surface-container-high px-5 py-3 text-sm font-bold text-on-surface transition-all hover:bg-surface-container active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Seguir con la reserva
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmCancellation()}
+                disabled={isCancelling}
+                className="rounded-2xl bg-error px-5 py-3 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isCancelling ? 'Cancelando...' : 'Confirmar cancelacion'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <Footer />
     </div>
   );
