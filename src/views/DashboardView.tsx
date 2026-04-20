@@ -9,11 +9,16 @@ import { HistoryRow } from '../components/dashboard/HistoryRow';
 import { SpaceCard } from '../components/dashboard/SpaceCard';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
-import { dashboardSpaces, reservationHistory } from '../data/mockData';
-import type { SpaceCardData } from '../types/reservations';
+import { dashboardSpaces } from '../data/mockData';
+import type {
+  HistoryEntry,
+  HistoryStatus,
+  ReservationConfirmation,
+  SpaceCardData,
+} from '../types/reservations';
 
 interface DashboardViewProps {
-  onConfirmBooking: (success: boolean) => void;
+  onConfirmBooking: (reservationConfirmation: ReservationConfirmation | null) => void;
   onNavigateToReservations: () => void;
 }
 
@@ -33,6 +38,19 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat('es-SV', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
+});
+const HISTORY_DATE_LABEL = new Intl.DateTimeFormat('es-SV', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+const HISTORY_TIME_LABEL = new Intl.DateTimeFormat('es-SV', {
+  hour: 'numeric',
+  minute: '2-digit',
+});
+const HISTORY_SYNC_LABEL = new Intl.DateTimeFormat('es-SV', {
+  hour: 'numeric',
+  minute: '2-digit',
 });
 
 const SLOT_INTERVAL_MINUTES = 30;
@@ -198,10 +216,49 @@ function getMinutesFromDate(date: Date) {
   return date.getHours() * 60 + date.getMinutes();
 }
 
-function getHistoryStatusClasses(status: 'Completada' | 'En proceso') {
+function formatHistoryTimeRange(start: Date, end: Date) {
+  return `${HISTORY_TIME_LABEL.format(start)} - ${HISTORY_TIME_LABEL.format(end)}`;
+}
+
+function getHistoryStatus(
+  reservation: ReservationRecordResponse,
+  now: Date,
+): HistoryStatus {
+  if (isCancelledReservation(reservation)) {
+    return 'Cancelada';
+  }
+
+  if (new Date(reservation.end) < now) {
+    return 'Completada';
+  }
+
+  return 'Activa';
+}
+
+function getHistoryStatusClasses(status: HistoryStatus) {
   return status === 'Completada'
     ? 'bg-green-100 text-green-800'
-    : 'bg-secondary-container text-on-secondary-container';
+    : status === 'Cancelada'
+      ? 'bg-error-container text-error'
+      : 'bg-secondary-container text-on-secondary-container';
+}
+
+function toHistoryEntry(
+  reservation: ReservationRecordResponse,
+  userName: string,
+  now: Date,
+): HistoryEntry {
+  const startDate = new Date(reservation.start);
+  const endDate = new Date(reservation.end);
+
+  return {
+    id: reservation.reservation_id,
+    user: userName,
+    space: reservation.location?.trim() || reservation.title,
+    date: HISTORY_DATE_LABEL.format(startDate),
+    time: formatHistoryTimeRange(startDate, endDate),
+    status: getHistoryStatus(reservation, now),
+  };
 }
 
 export function DashboardView({
@@ -223,6 +280,7 @@ export function DashboardView({
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [isLoadingReservations, setIsLoadingReservations] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastReservationsSync, setLastReservationsSync] = useState<Date | null>(null);
   const [reservations, setReservations] = useState<ReservationRecordResponse[]>([]);
   const [reservationsError, setReservationsError] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(
@@ -236,6 +294,7 @@ export function DashboardView({
     try {
       const data = await listReservations();
       setReservations(data);
+      setLastReservationsSync(new Date());
     } catch (error) {
       setReservations([]);
       setReservationsError(
@@ -252,10 +311,26 @@ export function DashboardView({
     void loadReservations();
   }, []);
 
+  const now = new Date();
   const availableSpaces: SpaceCardData[] = dashboardSpaces.map((space) => ({
     ...space,
     status: 'Disponible',
   }));
+  const historyEntries = [...reservations]
+    .sort(
+      (left, right) =>
+        new Date(right.start).getTime() - new Date(left.start).getTime(),
+    )
+    .map((reservation) =>
+      toHistoryEntry(
+        reservation,
+        user?.name ?? reservation.user_email ?? 'Usuario institucional',
+        now,
+      ),
+    );
+  const historySyncLabel = lastReservationsSync
+    ? `Sincronizado con reservations.json a las ${HISTORY_SYNC_LABEL.format(lastReservationsSync)}`
+    : 'Sincronizando historial con el backend';
 
   const daysInMonth = new Date(
     visibleMonth.getFullYear(),
@@ -309,7 +384,6 @@ export function DashboardView({
   const selectedSpaceDetails = availableSpaces.find(
     (space) => space.value === selectedSpace,
   );
-  const now = new Date();
   const relevantReservations = reservations.filter((reservation) => {
     if (!isActiveReservation(reservation, now)) {
       return false;
@@ -627,7 +701,7 @@ export function DashboardView({
     setIsSubmitting(true);
 
     try {
-      await createReservation({
+      const reservationPayload = {
         attendees: user?.email ? [user.email] : [],
         description: [
           'Reservacion creada desde DoDate.',
@@ -640,12 +714,20 @@ export function DashboardView({
         location: selectedSpaceDetails.title,
         start: toReservationDateTime(selectedDate, startTime),
         title: `Reserva - ${selectedSpaceDetails.title}`,
-      });
+      };
+      const createdReservation = await createReservation(reservationPayload);
       await loadReservations();
-      onConfirmBooking(true);
+      onConfirmBooking({
+        end: reservationPayload.end,
+        reservationId: createdReservation.reservation_id,
+        spaceDetails: selectedSpaceDetails.description,
+        spaceName: reservationPayload.location,
+        start: reservationPayload.start,
+        webLink: createdReservation.web_link ?? undefined,
+      });
     } catch (error) {
       console.error(error);
-      onConfirmBooking(false);
+      onConfirmBooking(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -1155,90 +1237,119 @@ export function DashboardView({
             </h2>
             <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-4 py-2 text-sm text-on-surface-variant">
               <span className="material-symbols-outlined text-base">history</span>
-              <span>Actualizado hace 2 minutos</span>
+              <span>{historySyncLabel}</span>
             </div>
           </div>
 
-          <div className="space-y-4 md:hidden">
-            {reservationHistory.map((entry) => (
-              <article
-                key={`${entry.user}-${entry.date}-${entry.time}`}
-                className="rounded-[1.5rem] bg-surface-container-low p-5"
+          {isLoadingReservations ? (
+            <div className="rounded-[1.75rem] bg-surface-container-low px-6 py-10 text-center text-sm text-on-surface-variant">
+              Cargando historial desde el backend...
+            </div>
+          ) : reservationsError ? (
+            <div className="rounded-[1.75rem] border border-error/15 bg-error-container/40 px-6 py-6 text-sm text-error">
+              <p className="font-semibold">{reservationsError}</p>
+              <button
+                type="button"
+                onClick={() => void loadReservations()}
+                className="mt-4 rounded-2xl bg-white px-4 py-2 font-bold text-primary transition-all hover:shadow-sm active:scale-95"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-base font-bold text-on-surface">
-                      {entry.user}
-                    </p>
-                    <p className="mt-1 text-sm text-on-surface-variant">
-                      {entry.space}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold ${getHistoryStatusClasses(
-                      entry.status,
-                    )}`}
+                Reintentar
+              </button>
+            </div>
+          ) : historyEntries.length === 0 ? (
+            <div className="rounded-[1.75rem] bg-surface-container-low px-6 py-10 text-center">
+              <p className="text-lg font-bold text-primary font-headline">
+                Aun no hay reservas registradas.
+              </p>
+              <p className="mt-2 text-sm text-on-surface-variant">
+                Cuando el backend guarde datos en <code>reservations.json</code>,
+                apareceran aqui automaticamente.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 md:hidden">
+                {historyEntries.map((entry) => (
+                  <article
+                    key={entry.id}
+                    className="rounded-[1.5rem] bg-surface-container-low p-5"
                   >
-                    {entry.status}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
-                    <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
-                      Fecha
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-on-surface">
-                      {entry.date}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
-                    <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
-                      Horario
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-on-surface">
-                      {entry.time}
-                    </p>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="hidden overflow-hidden rounded-3xl bg-surface-container-low md:block">
-            <table className="w-full border-collapse text-left">
-              <thead className="bg-surface-container-high">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
-                    Usuario
-                  </th>
-                  <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
-                    Espacio
-                  </th>
-                  <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
-                    Horario
-                  </th>
-                  <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
-                    Estado
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {reservationHistory.map((entry) => (
-                  <HistoryRow
-                    key={`${entry.user}-${entry.date}-${entry.time}`}
-                    user={entry.user}
-                    space={entry.space}
-                    date={entry.date}
-                    time={entry.time}
-                    status={entry.status}
-                  />
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-bold text-on-surface">
+                          {entry.user}
+                        </p>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {entry.space}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${getHistoryStatusClasses(
+                          entry.status,
+                        )}`}
+                      >
+                        {entry.status}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
+                        <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
+                          Fecha
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">
+                          {entry.date}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-surface-container-lowest px-4 py-3">
+                        <p className="text-[11px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">
+                          Horario
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-on-surface">
+                          {entry.time}
+                        </p>
+                      </div>
+                    </div>
+                  </article>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              <div className="hidden overflow-hidden rounded-3xl bg-surface-container-low md:block">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-surface-container-high">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
+                        Usuario
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
+                        Espacio
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
+                        Fecha
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
+                        Horario
+                      </th>
+                      <th className="px-6 py-4 text-xs font-bold tracking-widest text-on-surface-variant uppercase">
+                        Estado
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyEntries.map((entry) => (
+                      <HistoryRow
+                        key={entry.id}
+                        user={entry.user}
+                        space={entry.space}
+                        date={entry.date}
+                        time={entry.time}
+                        status={entry.status}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
       </main>
       <Footer />

@@ -15,6 +15,13 @@ export function HistoryRow({
   time,
   user,
 }: HistoryRowProps) {
+  const statusClasses =
+    status === 'Completada'
+      ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800'
+      : status === 'Cancelada'
+        ? 'rounded-full bg-error-container px-3 py-1 text-xs font-bold text-error'
+        : 'rounded-full bg-secondary-container px-3 py-1 text-xs font-bold text-on-secondary-container';
+
   return (
     <tr className="border-b border-surface-container bg-surface-container-lowest">
       <td className="px-6 py-4 text-sm font-medium">{user}</td>
@@ -22,15 +29,7 @@ export function HistoryRow({
       <td className="px-6 py-4 text-sm text-on-surface-variant">{date}</td>
       <td className="px-6 py-4 text-sm text-on-surface-variant">{time}</td>
       <td className="px-6 py-4">
-        <span
-          className={
-            status === 'Completada'
-              ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800'
-              : 'rounded-full bg-secondary-container px-3 py-1 text-xs font-bold text-on-secondary-container'
-          }
-        >
-          {status}
-        </span>
+        <span className={statusClasses}>{status}</span>
       </td>
     </tr>
   );

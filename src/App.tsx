@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { AuthLoadingScreen, ProtectedRoute } from './auth/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { AUTH_LOGIN_URL } from './auth/config';
+import type { ReservationConfirmation } from './types/reservations';
 import { DashboardView } from './views/DashboardView';
 import { FailureView } from './views/FailureView';
 import { LoginView } from './views/LoginView';
@@ -15,8 +16,8 @@ export default function App() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
 
-  const navigateTo = (path: string) => {
-    navigate(path);
+  const navigateTo = (path: string, state?: unknown) => {
+    navigate(path, state === undefined ? undefined : { state });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -66,8 +67,13 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardView
                     onNavigateToReservations={() => navigateTo('/reservations')}
-                    onConfirmBooking={(success) =>
-                      navigateTo(success ? '/success' : '/failure')
+                    onConfirmBooking={(reservationConfirmation: ReservationConfirmation | null) =>
+                      navigateTo(
+                        reservationConfirmation ? '/success' : '/failure',
+                        reservationConfirmation
+                          ? { reservationConfirmation }
+                          : undefined,
+                      )
                     }
                   />
                 </ProtectedRoute>

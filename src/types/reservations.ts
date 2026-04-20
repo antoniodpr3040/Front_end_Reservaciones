@@ -1,5 +1,5 @@
 export type SpaceStatus = 'Disponible' | 'Ocupado';
-export type HistoryStatus = 'Completada' | 'En proceso';
+export type HistoryStatus = 'Activa' | 'Cancelada' | 'Completada';
 export type ReservationStatus = 'Activa' | 'Completada';
 
 export interface SpaceCardData {
@@ -12,6 +12,7 @@ export interface SpaceCardData {
 }
 
 export interface HistoryEntry {
+  id: string;
   user: string;
   space: string;
   date: string;
@@ -28,4 +29,13 @@ export interface ReservationEntry {
   icon: string;
   highlight?: boolean;
   completed?: boolean;
+}
+
+export interface ReservationConfirmation {
+  end: string;
+  reservationId: string;
+  spaceDetails?: string;
+  spaceName: string;
+  start: string;
+  webLink?: string;
 }

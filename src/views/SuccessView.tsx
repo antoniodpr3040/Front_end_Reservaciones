@@ -1,15 +1,111 @@
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { listReservations, type ReservationRecordResponse } from '../api/reservations';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
+import { dashboardSpaces } from '../data/mockData';
+import type { ReservationConfirmation } from '../types/reservations';
 
 interface SuccessViewProps {
   onBackToReservations: () => void;
   onNewBooking: () => void;
 }
 
+interface SuccessLocationState {
+  reservationConfirmation?: ReservationConfirmation;
+}
+
+const DATE_LABEL = new Intl.DateTimeFormat('es-SV', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+const TIME_LABEL = new Intl.DateTimeFormat('es-SV', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+function formatReservationTime(start: string, end: string) {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  return `${TIME_LABEL.format(startDate)} - ${TIME_LABEL.format(endDate)}`;
+}
+
+function findSpaceDetails(spaceName: string) {
+  return dashboardSpaces.find((space) => space.title === spaceName)?.description;
+}
+
+function toReservationConfirmation(
+  reservation: ReservationRecordResponse,
+): ReservationConfirmation {
+  const spaceName = reservation.location?.trim() || reservation.title;
+
+  return {
+    end: reservation.end,
+    reservationId: reservation.reservation_id,
+    spaceDetails: findSpaceDetails(spaceName),
+    spaceName,
+    start: reservation.start,
+    webLink: reservation.web_link ?? undefined,
+  };
+}
+
 export function SuccessView({
   onBackToReservations,
   onNewBooking,
 }: SuccessViewProps) {
+  const location = useLocation();
+  const locationState = location.state as SuccessLocationState | null;
+  const [reservationConfirmation, setReservationConfirmation] =
+    useState<ReservationConfirmation | null>(
+      locationState?.reservationConfirmation ?? null,
+    );
+  const [isLoadingReservation, setIsLoadingReservation] = useState(
+    !locationState?.reservationConfirmation,
+  );
+
+  useEffect(() => {
+    if (locationState?.reservationConfirmation) {
+      setReservationConfirmation(locationState.reservationConfirmation);
+      setIsLoadingReservation(false);
+      return;
+    }
+
+    const loadLatestReservation = async () => {
+      setIsLoadingReservation(true);
+
+      try {
+        const reservations = await listReservations();
+        setReservationConfirmation(
+          reservations.length > 0 ? toReservationConfirmation(reservations[0]) : null,
+        );
+      } catch {
+        setReservationConfirmation(null);
+      } finally {
+        setIsLoadingReservation(false);
+      }
+    };
+
+    void loadLatestReservation();
+  }, [locationState]);
+
+  const reservationDate = reservationConfirmation
+    ? DATE_LABEL.format(new Date(reservationConfirmation.start))
+    : 'Fecha no disponible';
+  const reservationTime = reservationConfirmation
+    ? formatReservationTime(
+        reservationConfirmation.start,
+        reservationConfirmation.end,
+      )
+    : 'Horario no disponible';
+  const reservationSpace = reservationConfirmation?.spaceName ?? 'Espacio no disponible';
+  const reservationSpaceDetails =
+    reservationConfirmation?.spaceDetails ?? 'El backend no devolvio un detalle adicional para este espacio.';
+  const reservationId = reservationConfirmation?.reservationId ?? 'Sin ID disponible';
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <Header
@@ -31,8 +127,9 @@ export function SuccessView({
             Reserva confirmada
           </h1>
           <p className="mx-auto max-w-md text-lg text-on-surface-variant">
-            Tu espacio academico fue asegurado con exito. Enviamos los detalles
-            a tu correo institucional.
+            {isLoadingReservation
+              ? 'Estamos cargando el detalle real de tu reserva.'
+              : 'Tu espacio academico fue asegurado con exito. Enviamos los detalles a tu correo institucional.'}
           </p>
         </div>
         <div className="mb-12 grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
@@ -51,10 +148,10 @@ export function SuccessView({
                 <div>
                   <p className="text-sm text-on-surface-variant">Ubicacion</p>
                   <p className="text-xl font-bold text-on-surface">
-                    Auditorio Central "Hamilton"
+                    {reservationSpace}
                   </p>
                   <p className="text-sm text-on-surface-variant">
-                    Edificio de Ciencias, nivel 3
+                    {reservationSpaceDetails}
                   </p>
                 </div>
               </div>
@@ -68,7 +165,7 @@ export function SuccessView({
                   <div>
                     <p className="text-sm text-on-surface-variant">Fecha</p>
                     <p className="text-lg font-semibold text-on-surface">
-                      24 de octubre de 2026
+                      {reservationDate}
                     </p>
                   </div>
                 </div>
@@ -81,7 +178,7 @@ export function SuccessView({
                   <div>
                     <p className="text-sm text-on-surface-variant">Horario</p>
                     <p className="text-lg font-semibold text-on-surface">
-                      14:00 - 16:30
+                      {reservationTime}
                     </p>
                   </div>
                 </div>
@@ -89,18 +186,28 @@ export function SuccessView({
             </div>
           </div>
           <div className="flex flex-col items-center justify-center rounded-xl bg-surface-container-low p-8 text-center">
-            <div className="mb-4 rounded-xl bg-white p-4 shadow-sm">
-              <img
-                alt="Codigo QR de la reserva"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqBW1rHjwKcWdP_4PN4dk4rgoJhQ1C7v_lH8tcIaW-sxd1BWR68LWyMF-3CfE09TxJqLICZ9JQJABMdhofGywar1JWXAYXwveSYAlD34GMAebctM73tefTnY0PJ5ZRkWvHyPn6Rj2J-Fkp2tOR-Kws_Ocwj6kodxxRtZ-ojTBNJpelLeIQzFhuawE9SLQ_4g1ThsdCHwZNJqoZYihAuoB1c19a0rYlIuWFkSstH-AMMVG_7V-kSDqMKprT2jdOBw8o8ExpNS27J3Fh"
-              />
+            <div className="mb-4 flex h-44 w-full items-center justify-center rounded-xl bg-white p-4 shadow-sm">
+              <span className="material-symbols-outlined text-7xl text-primary">
+                event_available
+              </span>
             </div>
             <p className="mb-1 text-xs font-bold tracking-tighter text-on-surface-variant uppercase">
               ID de reserva
             </p>
             <p className="font-mono text-lg font-bold text-primary">
-              #AA-459-882
+              {reservationId}
             </p>
+            {reservationConfirmation?.webLink ? (
+              <a
+                href={reservationConfirmation.webLink}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline underline-offset-4"
+              >
+                <span className="material-symbols-outlined text-sm">open_in_new</span>
+                Ver evento en Outlook
+              </a>
+            ) : null}
           </div>
           <div className="flex flex-col items-center justify-between gap-6 rounded-xl bg-primary-container p-6 text-on-primary-container md:col-span-3 md:flex-row">
             <div className="flex items-center gap-4">
@@ -112,15 +219,23 @@ export function SuccessView({
                 fisica o digital.
               </p>
             </div>
-            <button
-              type="button"
-              className="flex items-center gap-2 text-sm font-bold hover:underline underline-offset-4 decoration-primary-fixed-dim"
-            >
-              <span className="material-symbols-outlined text-sm">
-                file_download
+            {reservationConfirmation?.webLink ? (
+              <a
+                href={reservationConfirmation.webLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 text-sm font-bold hover:underline underline-offset-4 decoration-primary-fixed-dim"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  calendar_month
+                </span>
+                Abrir comprobante en Outlook
+              </a>
+            ) : (
+              <span className="text-sm font-bold text-primary-fixed-dim">
+                El comprobante se refleja en tu historial de reservas.
               </span>
-              Descargar comprobante PDF
-            </button>
+            )}
           </div>
         </div>
         <div className="flex w-full max-w-md flex-col gap-4 md:flex-row">

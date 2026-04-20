@@ -33,6 +33,7 @@ export const dashboardSpaces: SpaceCardData[] = [
 
 export const reservationHistory: HistoryEntry[] = [
   {
+    id: 'history-1',
     user: 'Ana Martinez',
     space: 'Biblioteca',
     date: '24 May 2026',
@@ -40,13 +41,15 @@ export const reservationHistory: HistoryEntry[] = [
     status: 'Completada',
   },
   {
+    id: 'history-2',
     user: 'Carlos Ruiz',
     space: 'Laboratorio',
     date: '25 May 202+',
     time: '14:00 - 16:30',
-    status: 'En proceso',
+    status: 'Activa',
   },
   {
+    id: 'history-3',
     user: 'Lucia Gomez',
     space: 'Sala de mentoria',
     date: '26 May 2026',
