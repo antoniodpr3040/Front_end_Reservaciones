@@ -1,6 +1,6 @@
 const configuredApiBase =
   import.meta.env.VITE_API_BASE_URL?.trim() ||
-  'https://nonenviable-dorothea-congenial.ngrok-free.dev';
+  'https://back-end-reservaciones.vercel.app';
 
 export const AUTH_API_BASE = configuredApiBase.replace(/\/+$/, '');
 export const AUTH_LOGIN_URL = `${AUTH_API_BASE}/login/microsoft`;
