@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   createReservation,
+  listAllOccupiedSlots,
   listReservations,
+  type OccupiedSlotResponse,
   type ReservationRecordResponse,
 } from '../api/reservations';
 import { useAuth } from '../auth/AuthContext';
@@ -192,17 +194,17 @@ function resolveSpaceValueFromText(value: string) {
   return undefined;
 }
 
-function getReservationSpaceValue(reservation: ReservationRecordResponse) {
+function getReservationSpaceValue(reservation: { title: string; location?: string | null }) {
   return resolveSpaceValueFromText(
     `${reservation.title} ${reservation.location ?? ''}`,
   );
 }
 
-function isCancelledReservation(reservation: ReservationRecordResponse) {
+function isCancelledReservation(reservation: { status: string }) {
   return reservation.status.toLowerCase() === 'cancelled';
 }
 
-function isActiveReservation(reservation: ReservationRecordResponse, now: Date) {
+function isActiveReservation(reservation: { status: string; end: string }, now: Date) {
   return !isCancelledReservation(reservation) && new Date(reservation.end) > now;
 }
 
@@ -304,6 +306,7 @@ export function DashboardView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastReservationsSync, setLastReservationsSync] = useState<Date | null>(null);
   const [reservations, setReservations] = useState<ReservationRecordResponse[]>([]);
+  const [allOccupiedSlots, setAllOccupiedSlots] = useState<OccupiedSlotResponse[]>([]);
   const [reservationsError, setReservationsError] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(
@@ -318,11 +321,16 @@ export function DashboardView({
     setReservationsError('');
 
     try {
-      const data = await listReservations();
-      setReservations(data);
+      const [userReservations, occupiedSlots] = await Promise.all([
+        listReservations(),
+        listAllOccupiedSlots(),
+      ]);
+      setReservations(userReservations);
+      setAllOccupiedSlots(occupiedSlots);
       setLastReservationsSync(new Date());
     } catch (error) {
       setReservations([]);
+      setAllOccupiedSlots([]);
       setReservationsError(
         error instanceof Error
           ? error.message
@@ -412,7 +420,7 @@ export function DashboardView({
   const selectedSpaceDetails = availableSpaces.find(
     (space) => space.value === selectedSpace,
   );
-  const relevantReservations = reservations.filter((reservation) => {
+  const relevantReservations = allOccupiedSlots.filter((reservation) => {
     if (!isActiveReservation(reservation, now)) {
       return false;
     }

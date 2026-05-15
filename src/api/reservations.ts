@@ -45,6 +45,15 @@ export interface ReservationRecordResponse {
   web_link?: string | null;
 }
 
+export interface OccupiedSlotResponse {
+  end: string;
+  location?: string | null;
+  reservation_id: string;
+  start: string;
+  status: string;
+  title: string;
+}
+
 function readErrorMessage(payload: unknown) {
   if (typeof payload === 'string' && payload.trim()) {
     return payload.trim();
@@ -105,6 +114,20 @@ export async function createReservation(
   }
 
   return response.json() as Promise<CreateReservationResponse>;
+}
+
+export async function listAllOccupiedSlots(): Promise<OccupiedSlotResponse[]> {
+  const response = await fetch(`${OUTLOOK_RESERVATIONS_URL}/occupied`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: buildAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error('No se pudo cargar la disponibilidad actual.');
+  }
+
+  return response.json() as Promise<OccupiedSlotResponse[]>;
 }
 
 export async function listReservations() {
