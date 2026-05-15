@@ -55,7 +55,8 @@ const HISTORY_SYNC_LABEL = new Intl.DateTimeFormat('es-SV', {
 
 const SLOT_INTERVAL_MINUTES = 30;
 const DEFAULT_DAY_START_MINUTES = 5 * 60;
-const DAY_END_MINUTES = 20 * 60;
+const DEFAULT_DAY_END_MINUTES = 20 * 60;
+const SATURDAY_DAY_END_MINUTES = 12 * 60;
 const TIMELINE_SLOT_HEIGHT = 44;
 const SPACE_MATCHERS: Record<string, string[]> = {
   biblioteca: ['biblioteca'],
@@ -87,12 +88,12 @@ function fromDateInputValue(value: string) {
   return new Date(year, month - 1, day);
 }
 
-function createTimeSlots(startMinutes: number) {
+function createTimeSlots(startMinutes: number, endMinutes: number) {
   const options: string[] = [];
 
   for (
     let minutes = startMinutes;
-    minutes < DAY_END_MINUTES;
+    minutes < endMinutes;
     minutes += SLOT_INTERVAL_MINUTES
   ) {
     options.push(`${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`);
@@ -139,6 +140,24 @@ function isSameDay(left: Date, right: Date) {
     left.getMonth() === right.getMonth() &&
     left.getDate() === right.getDate()
   );
+}
+
+function isSunday(date: Date) {
+  return date.getDay() === 0;
+}
+
+function getReservationDayEndMinutes(date: Date) {
+  return date.getDay() === 6 ? SATURDAY_DAY_END_MINUTES : DEFAULT_DAY_END_MINUTES;
+}
+
+function getNextAvailableReservationDate(date: Date) {
+  const nextDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  while (isSunday(nextDate)) {
+    nextDate.setDate(nextDate.getDate() + 1);
+  }
+
+  return nextDate;
 }
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -273,8 +292,11 @@ export function DashboardView({
     today.getMonth(),
     today.getDate(),
   );
+  const initialSelectedDate = getNextAvailableReservationDate(todayAtMidnight);
   const [selectedSpace, setSelectedSpace] = useState('');
-  const [selectedDate, setSelectedDate] = useState(toDateInputValue(today));
+  const [selectedDate, setSelectedDate] = useState(
+    toDateInputValue(initialSelectedDate),
+  );
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -284,7 +306,11 @@ export function DashboardView({
   const [reservations, setReservations] = useState<ReservationRecordResponse[]>([]);
   const [reservationsError, setReservationsError] = useState('');
   const [visibleMonth, setVisibleMonth] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1),
+    new Date(
+      initialSelectedDate.getFullYear(),
+      initialSelectedDate.getMonth(),
+      1,
+    ),
   );
 
   const loadReservations = async () => {
@@ -348,14 +374,16 @@ export function DashboardView({
   );
   const selectedDateParts = selectedDate.split('-').map(Number);
   const selectedDateObject = fromDateInputValue(selectedDate);
+  const isSelectedDateClosed = isSunday(selectedDateObject);
+  const selectedDayEndMinutes = getReservationDayEndMinutes(selectedDateObject);
   const isSelectedToday = isSameDay(selectedDateObject, todayAtMidnight);
   const currentMinutes = today.getHours() * 60 + today.getMinutes();
   const timelineStartMinutes = isSelectedToday
     ? Math.max(DEFAULT_DAY_START_MINUTES, roundUpToNextSlot(currentMinutes))
     : DEFAULT_DAY_START_MINUTES;
   const timeSlots =
-    timelineStartMinutes < DAY_END_MINUTES
-      ? createTimeSlots(timelineStartMinutes)
+    !isSelectedDateClosed && timelineStartMinutes < selectedDayEndMinutes
+      ? createTimeSlots(timelineStartMinutes, selectedDayEndMinutes)
       : [];
   const hasTimelineAvailability = timeSlots.length > 0;
   const selectedDay = selectedDateParts[2];
@@ -412,12 +440,12 @@ export function DashboardView({
         startMinutes: clamp(
           roundDownToSlot(getMinutesFromDate(startDate)),
           timelineStartMinutes,
-          DAY_END_MINUTES,
+          selectedDayEndMinutes,
         ),
         endMinutes: clamp(
           roundUpToNextSlot(getMinutesFromDate(endDate)),
           timelineStartMinutes,
-          DAY_END_MINUTES,
+          selectedDayEndMinutes,
         ),
       };
     })
@@ -489,7 +517,7 @@ export function DashboardView({
 
     const rect = timeline.getBoundingClientRect();
     const maxOffset =
-      ((DAY_END_MINUTES - timelineStartMinutes) / SLOT_INTERVAL_MINUTES) *
+      ((selectedDayEndMinutes - timelineStartMinutes) / SLOT_INTERVAL_MINUTES) *
         TIMELINE_SLOT_HEIGHT -
       1;
     const offsetY = clamp(clientY - rect.top, 0, maxOffset);
@@ -511,7 +539,7 @@ export function DashboardView({
         if (pointerMinutes >= anchorMinutes) {
           const requestedEnd = Math.min(
             pointerMinutes + SLOT_INTERVAL_MINUTES,
-            DAY_END_MINUTES,
+            selectedDayEndMinutes,
           );
           const blockingReservation = occupiedTimeBlocks.find((block) =>
             rangesOverlap(
@@ -560,7 +588,7 @@ export function DashboardView({
         const nextStart = clamp(
           dragState.startMinutes + deltaIntervals * SLOT_INTERVAL_MINUTES,
           timelineStartMinutes,
-          DAY_END_MINUTES - duration,
+          selectedDayEndMinutes - duration,
         );
         const nextEnd = nextStart + duration;
 
@@ -590,7 +618,7 @@ export function DashboardView({
       const candidateEnd = clamp(
         getMinutesFromPointer(event.clientY) + SLOT_INTERVAL_MINUTES,
         dragState.startMinutes + SLOT_INTERVAL_MINUTES,
-        DAY_END_MINUTES,
+        selectedDayEndMinutes,
       );
 
       if (isRangeAvailable(dragState.startMinutes, candidateEnd, occupiedTimeBlocks)) {
@@ -609,7 +637,7 @@ export function DashboardView({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [dragState, occupiedTimeBlocks, timelineStartMinutes]);
+  }, [dragState, occupiedTimeBlocks, selectedDayEndMinutes, timelineStartMinutes]);
 
   const handleReserve = (space: SpaceCardData) => {
     handleSpaceChange(space.value);
@@ -619,8 +647,22 @@ export function DashboardView({
   };
 
   const handleDateChange = (value: string) => {
-    setSelectedDate(value);
-    setVisibleMonth(fromDateInputValue(value));
+    const nextSelectedDate = getNextAvailableReservationDate(
+      fromDateInputValue(value),
+    );
+
+    if (nextSelectedDate < todayAtMidnight) {
+      return;
+    }
+
+    setSelectedDate(toDateInputValue(nextSelectedDate));
+    setVisibleMonth(
+      new Date(
+        nextSelectedDate.getFullYear(),
+        nextSelectedDate.getMonth(),
+        1,
+      ),
+    );
     resetTimeSelection();
   };
 
@@ -631,7 +673,7 @@ export function DashboardView({
       day,
     );
 
-    if (nextSelectedDate < todayAtMidnight) {
+    if (nextSelectedDate < todayAtMidnight || isSunday(nextSelectedDate)) {
       return;
     }
 
@@ -648,7 +690,7 @@ export function DashboardView({
     const startMinutes = getMinutesFromPointer(event.clientY);
     const endMinutes = Math.min(
       startMinutes + SLOT_INTERVAL_MINUTES,
-      DAY_END_MINUTES,
+      selectedDayEndMinutes,
     );
 
     if (!isRangeAvailable(startMinutes, endMinutes, occupiedTimeBlocks)) {
@@ -693,6 +735,8 @@ export function DashboardView({
       !selectedSpaceDetails ||
       !startTime ||
       !endTime ||
+      isSunday(selectedDateObject) ||
+      toMinutes(endTime) > selectedDayEndMinutes ||
       !isRangeAvailable(toMinutes(startTime), toMinutes(endTime), occupiedTimeBlocks)
     ) {
       return;
@@ -732,6 +776,10 @@ export function DashboardView({
       setIsSubmitting(false);
     }
   };
+
+  const nextShortcutDate = getNextAvailableReservationDate(
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+  );
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -832,18 +880,18 @@ export function DashboardView({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => handleDateChange(toDateInputValue(today))}
+                      onClick={() =>
+                        handleDateChange(toDateInputValue(initialSelectedDate))
+                      }
                       className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
                     >
                       Hoy
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(today.getDate() + 1);
-                        handleDateChange(toDateInputValue(tomorrow));
-                      }}
+                      onClick={() =>
+                        handleDateChange(toDateInputValue(nextShortcutDate))
+                      }
                       className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
                     >
                       Mañana
@@ -851,6 +899,10 @@ export function DashboardView({
                   </div>
                   <p className="text-xs capitalize text-on-surface-variant">
                     {selectedDateLabel}
+                  </p>
+                  <p className="text-xs text-on-surface-variant">
+                    Domingo no disponible. El sabado solo se reserva hasta las
+                    12:00 PM.
                   </p>
                 </div>
               </div>
@@ -1183,6 +1235,7 @@ export function DashboardView({
                     day,
                   );
                   const isPastDay = dayDate < todayAtMidnight;
+                  const isClosedDay = isSunday(dayDate);
                   const isToday = isSameDay(dayDate, todayAtMidnight);
                   const isOccupied = occupiedDays.has(day);
                   const isSelected = isSelectedMonth && selectedDay === day;
@@ -1193,7 +1246,7 @@ export function DashboardView({
                       key={day}
                       onClick={() => selectCalendarDay(day)}
                       className={`relative flex aspect-square items-center justify-center rounded-lg text-[11px] font-medium sm:text-xs ${
-                        isPastDay
+                        isPastDay || isClosedDay
                           ? 'cursor-not-allowed bg-surface-container-low text-outline-variant opacity-60'
                           : isSelected
                             ? 'bg-primary font-bold text-white ring-2 ring-primary/20'
@@ -1203,7 +1256,7 @@ export function DashboardView({
                       }`}
                       aria-pressed={isSelected}
                       aria-label={`Seleccionar ${day} de ${MONTH_LABEL.format(visibleMonth)}`}
-                      disabled={isPastDay}
+                      disabled={isPastDay || isClosedDay}
                     >
                       {day}
                       {isToday && !isSelected ? (
