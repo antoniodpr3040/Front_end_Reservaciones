@@ -89,20 +89,6 @@ export function Header({
           </div>
           <button
             type="button"
-            className="hidden rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95 sm:inline-flex"
-            aria-label="Notificaciones"
-          >
-            <span className="material-symbols-outlined">notifications</span>
-          </button>
-          <button
-            type="button"
-            className="hidden rounded-lg p-2 text-slate-500 duration-200 hover:bg-slate-100 active:scale-95 sm:inline-flex"
-            aria-label="Ayuda"
-          >
-            <span className="material-symbols-outlined">help</span>
-          </button>
-          <button
-            type="button"
             onClick={() => navigate('/profile')}
             className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border transition-all active:scale-95 sm:h-10 sm:w-10 ${
               activeTab === 'profile'
