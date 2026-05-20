@@ -75,18 +75,6 @@ export function Header({
             ))}
           </nav>
         </div>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          <div className="relative hidden lg:block">
-            <span className="material-symbols-outlined absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Buscar espacios..."
-              className="w-56 rounded-lg border-none bg-slate-100 py-2 pr-4 pl-10 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20 xl:w-64"
-            />
-          </div>
           <button
             type="button"
             onClick={() => navigate('/profile')}
