@@ -479,16 +479,9 @@ export function ReservationsView({
                   Politica de reservas
                 </h3>
                 <p className="text-xs leading-relaxed opacity-80">
-                  Las cancelaciones deben hacerse al menos 2 horas antes del
-                  horario reservado para evitar penalizaciones.
+                  El uso de las salas es exclusivo para su aplicación específica. Las reservas deben realizarse antes de la hora de inicio. Sin embargo, si la sala se encuentra disponible en una hora específica, podrá utilizarse al momento de llegar.
                 </p>
               </div>
-              <a
-                className="mt-4 text-sm font-bold underline decoration-2 underline-offset-4 decoration-tertiary/30"
-                href="#"
-              >
-                Ver politica
-              </a>
             </div>
           </div>
         </div>

@@ -10,30 +10,6 @@ export function Footer() {
           <p>(c) 2026 DoDate Reservaciones. Uso institucional.</p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 md:justify-end">
-          <a
-            className="opacity-80 transition-colors hover:text-blue-900 hover:opacity-100"
-            href="#"
-          >
-            Privacidad
-          </a>
-          <a
-            className="opacity-80 transition-colors hover:text-blue-900 hover:opacity-100"
-            href="#"
-          >
-            Terminos
-          </a>
-          <a
-            className="opacity-80 transition-colors hover:text-blue-900 hover:opacity-100"
-            href="#"
-          >
-            Mapa del campus
-          </a>
-          <a
-            className="opacity-80 transition-colors hover:text-blue-900 hover:opacity-100"
-            href="#"
-          >
-            Directorio
-          </a>
         </div>
       </div>
     </footer>
