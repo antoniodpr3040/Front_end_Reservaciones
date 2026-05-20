@@ -75,6 +75,8 @@ export function Header({
             ))}
           </nav>
         </div>
+
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             type="button"
             onClick={() => navigate('/profile')}
