@@ -136,35 +136,6 @@ export function Header({
               </nav>
             ) : null}
 
-            <div className="relative">
-              <span className="material-symbols-outlined absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Buscar espacios..."
-                className="w-full rounded-2xl border-none bg-slate-100 py-3 pr-4 pl-10 text-sm outline-none transition-all focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
-              >
-                <span className="material-symbols-outlined text-base">
-                  notifications
-                </span>
-                Notificaciones
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700"
-              >
-                <span className="material-symbols-outlined text-base">help</span>
-                Ayuda
-              </button>
-            </div>
           </div>
         </div>
       ) : null}
