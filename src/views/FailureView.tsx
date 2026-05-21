@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import { Footer } from '../components/layout/Footer';
 import { AppLogo } from '../components/branding/AppLogo';
 
@@ -10,6 +11,8 @@ export function FailureView({
   onBackToSpaces,
   onTryAgain,
 }: FailureViewProps) {
+  const { state } = useLocation();
+  const failureLocation: string | undefined = (state as { failureLocation?: string } | null)?.failureLocation;
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between bg-slate-50/80 px-8 shadow-sm backdrop-blur-xl">
@@ -47,20 +50,22 @@ export function FailureView({
                 completo la solicitud unos segundos antes.
               </p>
               <div className="mb-10 flex w-full flex-col gap-6 rounded-xl bg-surface-container-low p-6 text-left md:flex-row">
-                <div className="flex-1">
+                {failureLocation && (
+                  <div className="flex-1">
+                    <span className="mb-2 block text-xs font-bold tracking-wider text-on-surface-variant uppercase font-label">
+                      Espacio solicitado
+                    </span>
+                    <p className="font-bold text-primary font-headline">
+                      {failureLocation}
+                    </p>
+                  </div>
+                )}
+                <div className={`flex-1 pl-0 ${failureLocation ? 'md:border-l md:border-outline-variant/30 md:pl-6' : ''}`}>
                   <span className="mb-2 block text-xs font-bold tracking-wider text-on-surface-variant uppercase font-label">
-                    Espacio solicitado
+                    Razon de error
                   </span>
-                  <p className="font-bold text-primary font-headline">
-                    Auditorium Magna - Wing B
-                  </p>
-                </div>
-                <div className="flex-1 pl-0 md:border-l md:border-outline-variant/30 md:pl-6">
-                  <span className="mb-2 block text-xs font-bold tracking-wider text-on-surface-variant uppercase font-label">
-                    Codigo de error
-                  </span>
-                  <p className="font-mono text-sm text-on-surface-variant">
-                    AA-RSV-409-CONFLICT
+                  <p className="text-sm font-semibold text-on-surface-variant">
+                    Conflicto de horarios
                   </p>
                 </div>
               </div>

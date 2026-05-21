@@ -67,12 +67,12 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardView
                     onNavigateToReservations={() => navigateTo('/reservations')}
-                    onConfirmBooking={(reservationConfirmation: ReservationConfirmation | null) =>
+                    onConfirmBooking={(reservationConfirmation, failureLocation) =>
                       navigateTo(
                         reservationConfirmation ? '/success' : '/failure',
                         reservationConfirmation
                           ? { reservationConfirmation }
-                          : undefined,
+                          : { failureLocation },
                       )
                     }
                   />

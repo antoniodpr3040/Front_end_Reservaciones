@@ -20,7 +20,7 @@ import type {
 } from '../types/reservations';
 
 interface DashboardViewProps {
-  onConfirmBooking: (reservationConfirmation: ReservationConfirmation | null) => void;
+  onConfirmBooking: (reservationConfirmation: ReservationConfirmation | null, failureLocation?: string) => void;
   onNavigateToReservations: () => void;
 }
 
@@ -777,7 +777,7 @@ export function DashboardView({
       });
     } catch (error) {
       console.error(error);
-      onConfirmBooking(null);
+      onConfirmBooking(null, selectedSpaceDetails.title);
     } finally {
       setIsSubmitting(false);
     }
