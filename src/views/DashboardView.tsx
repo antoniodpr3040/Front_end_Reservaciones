@@ -421,17 +421,15 @@ export function DashboardView({
     (space) => space.value === selectedSpace,
   );
   const relevantReservations = allOccupiedSlots.filter((reservation) => {
+    if (!selectedSpace) {
+      return false;
+    }
+
     if (!isActiveReservation(reservation, now)) {
       return false;
     }
 
-    const reservationSpace = getReservationSpaceValue(reservation);
-
-    if (selectedSpace && reservationSpace !== selectedSpace) {
-      return false;
-    }
-
-    return true;
+    return getReservationSpaceValue(reservation) === selectedSpace;
   });
   const occupiedTimeBlocks = relevantReservations
     .filter((reservation) => {
