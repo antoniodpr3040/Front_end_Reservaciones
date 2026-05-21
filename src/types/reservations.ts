@@ -2,13 +2,21 @@ export type SpaceStatus = 'Disponible' | 'Ocupado';
 export type HistoryStatus = 'Activa' | 'Cancelada' | 'Completada';
 export type ReservationStatus = 'Activa' | 'Completada';
 
+export interface SubSpaceItem {
+  value: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
 export interface SpaceCardData {
   value: string;
   title: string;
   description: string;
-  capacity: number;
+  capacity?: number;
   status: SpaceStatus;
   icon: string;
+  subSpaces?: SubSpaceItem[];
 }
 
 export interface HistoryEntry {

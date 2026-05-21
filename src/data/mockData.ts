@@ -14,20 +14,58 @@ export const dashboardSpaces: SpaceCardData[] = [
     icon: 'auto_stories',
   },
   {
-    value: 'laboratorio',
-    title: 'Laboratorio',
+    value: 'laboratorios',
+    title: 'Laboratorios',
     description: 'Investigacion avanzada',
-    capacity: 20,
-    status: 'Ocupado',
+    status: 'Disponible',
     icon: 'biotech',
+    subSpaces: [
+      {
+        value: 'laboratorio-computacion',
+        title: 'Lab de Computacion',
+        description: 'Equipos de ultima generacion',
+        icon: 'computer',
+      },
+      {
+        value: 'laboratorio-fisica',
+        title: 'Lab de Fisica',
+        description: 'Instrumentos de precision',
+        icon: 'science',
+      },
+      {
+        value: 'laboratorio-quimica',
+        title: 'Lab de Quimica',
+        description: 'Equipamiento especializado',
+        icon: 'biotech',
+      },
+    ],
   },
   {
-    value: 'mentoria',
-    title: 'Sala de mentoria',
+    value: 'mentorias',
+    title: 'Salas de mentoria',
     description: 'Colaboracion dirigida',
-    capacity: 6,
     status: 'Disponible',
     icon: 'co_present',
+    subSpaces: [
+      {
+        value: 'mentoria-1',
+        title: 'Sala de Mentoria 1',
+        description: 'Sesiones personalizadas',
+        icon: 'co_present',
+      },
+      {
+        value: 'mentoria-2',
+        title: 'Sala de Mentoria 2',
+        description: 'Sesiones personalizadas',
+        icon: 'co_present',
+      },
+      {
+        value: 'mentoria-3',
+        title: 'Sala de Mentoria 3',
+        description: 'Sesiones personalizadas',
+        icon: 'co_present',
+      },
+    ],
   },
 ];
 

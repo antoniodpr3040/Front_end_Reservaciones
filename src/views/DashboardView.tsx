@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { HistoryRow } from '../components/dashboard/HistoryRow';
 import { SpaceCard } from '../components/dashboard/SpaceCard';
+import { SubSpaceCatalogModal } from '../components/dashboard/SubSpaceCatalogModal';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
 import { dashboardSpaces } from '../data/mockData';
@@ -17,6 +18,8 @@ import type {
   HistoryStatus,
   ReservationConfirmation,
   SpaceCardData,
+  SpaceStatus,
+  SubSpaceItem,
 } from '../types/reservations';
 
 interface DashboardViewProps {
@@ -62,8 +65,12 @@ const SATURDAY_DAY_END_MINUTES = 12 * 60;
 const TIMELINE_SLOT_HEIGHT = 44;
 const SPACE_MATCHERS: Record<string, string[]> = {
   biblioteca: ['biblioteca'],
-  laboratorio: ['laboratorio'],
-  mentoria: ['mentoria', 'mentoria a', 'sala de mentoria'],
+  'laboratorio-computacion': ['lab de computacion'],
+  'laboratorio-fisica': ['lab de fisica'],
+  'laboratorio-quimica': ['lab de quimica'],
+  'mentoria-1': ['sala de mentoria 1'],
+  'mentoria-2': ['sala de mentoria 2'],
+  'mentoria-3': ['sala de mentoria 3'],
 };
 
 type DragMode = 'create' | 'move' | 'resize-start' | 'resize-end';
@@ -308,6 +315,7 @@ export function DashboardView({
   const [reservations, setReservations] = useState<ReservationRecordResponse[]>([]);
   const [allOccupiedSlots, setAllOccupiedSlots] = useState<OccupiedSlotResponse[]>([]);
   const [reservationsError, setReservationsError] = useState('');
+  const [catalogSpace, setCatalogSpace] = useState<SpaceCardData | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(
       initialSelectedDate.getFullYear(),
@@ -350,6 +358,17 @@ export function DashboardView({
     ...space,
     status: 'Disponible',
   }));
+  const bookableSpaces: SpaceCardData[] = dashboardSpaces.flatMap((space) =>
+    space.subSpaces?.length
+      ? space.subSpaces.map((sub) => ({
+          value: sub.value,
+          title: sub.title,
+          description: sub.description,
+          status: 'Disponible' as SpaceStatus,
+          icon: sub.icon,
+        }))
+      : [{ ...space, status: 'Disponible' as SpaceStatus }]
+  );
   const historyEntries = [...reservations]
     .sort(
       (left, right) =>
@@ -417,7 +436,7 @@ export function DashboardView({
       ? 0
       : ((selectedEndMinutes - selectedStartMinutes) / SLOT_INTERVAL_MINUTES) *
         TIMELINE_SLOT_HEIGHT;
-  const selectedSpaceDetails = availableSpaces.find(
+  const selectedSpaceDetails = bookableSpaces.find(
     (space) => space.value === selectedSpace,
   );
   const relevantReservations = allOccupiedSlots.filter((reservation) => {
@@ -646,7 +665,19 @@ export function DashboardView({
   }, [dragState, occupiedTimeBlocks, selectedDayEndMinutes, timelineStartMinutes]);
 
   const handleReserve = (space: SpaceCardData) => {
-    handleSpaceChange(space.value);
+    if (space.subSpaces?.length) {
+      setCatalogSpace(space);
+    } else {
+      handleSpaceChange(space.value);
+      document
+        .getElementById('booking-section')
+        ?.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleSelectSubSpace = (sub: SubSpaceItem) => {
+    setCatalogSpace(null);
+    handleSpaceChange(sub.value);
     document
       .getElementById('booking-section')
       ?.scrollIntoView({ behavior: 'smooth' });
@@ -789,6 +820,14 @@ export function DashboardView({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {catalogSpace && (
+        <SubSpaceCatalogModal
+          parentTitle={catalogSpace.title}
+          subSpaces={catalogSpace.subSpaces!}
+          onSelect={handleSelectSubSpace}
+          onClose={() => setCatalogSpace(null)}
+        />
+      )}
       <Header
         activeTab="spaces"
         onBackToSpaces={() => undefined}
@@ -813,6 +852,7 @@ export function DashboardView({
               capacity={space.capacity}
               status={space.status}
               icon={space.icon}
+              hasSubSpaces={!!space.subSpaces?.length}
               onReserve={() => handleReserve(space)}
             />
           ))}
@@ -863,11 +903,21 @@ export function DashboardView({
                   className="w-full rounded-xl border-none bg-surface-container-lowest px-4 py-3 outline-none focus:ring-2 focus:ring-surface-tint/20"
                 >
                   <option value="">Seleccione un espacio...</option>
-                  {availableSpaces.map((space) => (
-                    <option key={space.value} value={space.value}>
-                      {space.title}
-                    </option>
-                  ))}
+                  {dashboardSpaces.map((space) =>
+                    space.subSpaces?.length ? (
+                      <optgroup key={space.value} label={space.title}>
+                        {space.subSpaces.map((sub) => (
+                          <option key={sub.value} value={sub.value}>
+                            {sub.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : (
+                      <option key={space.value} value={space.value}>
+                        {space.title}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

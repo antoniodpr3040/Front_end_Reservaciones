@@ -1,8 +1,9 @@
 import type { SpaceStatus } from '../../types/reservations';
 
 interface SpaceCardProps {
-  capacity: number;
+  capacity?: number;
   description: string;
+  hasSubSpaces?: boolean;
   icon: string;
   onReserve: () => void;
   status: SpaceStatus;
@@ -12,6 +13,7 @@ interface SpaceCardProps {
 export function SpaceCard({
   capacity,
   description,
+  hasSubSpaces,
   icon,
   onReserve,
   status,
@@ -30,10 +32,12 @@ export function SpaceCard({
           <p className="text-sm text-on-surface-variant">{description}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 py-2">
-          <div className="flex items-center gap-1 text-sm text-on-surface-variant">
-            <span className="material-symbols-outlined text-base">group</span>
-            <span>Cap. {capacity}</span>
-          </div>
+          {capacity !== undefined && (
+            <div className="flex items-center gap-1 text-sm text-on-surface-variant">
+              <span className="material-symbols-outlined text-base">group</span>
+              <span>Cap. {capacity}</span>
+            </div>
+          )}
           <span
             className={
               status === 'Disponible'
@@ -50,7 +54,7 @@ export function SpaceCard({
         onClick={onReserve}
         className="mt-6 w-full rounded-xl bg-surface-container-high py-3 font-bold text-on-primary-fixed-variant transition-colors hover:bg-secondary-container"
       >
-        Reservar
+        {hasSubSpaces ? 'Ver espacios' : 'Reservar'}
       </button>
     </div>
   );
