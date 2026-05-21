@@ -919,8 +919,9 @@ export function DashboardView({
                       Horario de reservacion
                     </label>
                     <p className="mt-2 text-sm text-on-surface-variant">
-                      Las franjas bloqueadas ya tienen reserva. Arrastra solo
-                      sobre los espacios libres.
+                      {selectedSpace
+                        ? 'Las franjas bloqueadas ya tienen reserva. Arrastra solo sobre los espacios libres.'
+                        : 'Selecciona un espacio academico para ver la disponibilidad horaria.'}
                     </p>
                   </div>
                   {hasSelectedTimeRange ? (
@@ -940,6 +941,13 @@ export function DashboardView({
                   </div>
                 ) : null}
 
+                {!selectedSpace ? (
+                  <div className="flex items-center justify-center rounded-[1.75rem] border border-surface-container-high bg-surface-container-lowest px-6 py-14 text-center">
+                    <p className="text-sm font-semibold text-on-surface-variant">
+                      Selecciona un area para revisar la disponibilidad.
+                    </p>
+                  </div>
+                ) : (
                 <div className="overflow-hidden rounded-[1.75rem] border border-surface-container-high bg-surface-container-lowest">
                   <div className="flex flex-col gap-3 border-b border-surface-container-high px-4 py-4 sm:px-5 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
@@ -1108,12 +1116,6 @@ export function DashboardView({
                               </div>
                             ) : null}
 
-                            {!selectedSpace ? (
-                              <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[1.5rem] bg-white/72 px-6 text-center text-sm font-semibold text-on-surface-variant">
-                                Selecciona un espacio para visualizar y bloquear
-                                los horarios ya reservados.
-                              </div>
-                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -1126,6 +1128,7 @@ export function DashboardView({
                     )}
                   </div>
                 </div>
+                )}
               </div>
               <div className="rounded-2xl bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">
                 Reservaras el espacio el{' '}
