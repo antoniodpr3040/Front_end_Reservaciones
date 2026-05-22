@@ -65,9 +65,9 @@ const SATURDAY_DAY_END_MINUTES = 12 * 60;
 const TIMELINE_SLOT_HEIGHT = 44;
 const SPACE_MATCHERS: Record<string, string[]> = {
   biblioteca: ['biblioteca'],
-  'laboratorio-computacion': ['lab de computacion'],
-  'laboratorio-fisica': ['lab de fisica'],
-  'laboratorio-quimica': ['lab de quimica'],
+  'laboratorio-computacion': ['lab de computacion', 'laboratorio clic'],
+  'laboratorio-fisica': ['lab de fisica', 'laboratorio spark'],
+  'laboratorio-quimica': ['lab de quimica', 'laboratorio kite'],
   'mentoria-1': ['sala de mentoria 1'],
   'mentoria-2': ['sala de mentoria 2'],
   'mentoria-3': ['sala de mentoria 3'],

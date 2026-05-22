@@ -22,20 +22,20 @@ export const dashboardSpaces: SpaceCardData[] = [
     subSpaces: [
       {
         value: 'laboratorio-computacion',
-        title: 'Lab de Computacion',
-        description: 'Equipos de ultima generacion',
-        icon: 'computer',
+        title: 'Laboratorio CLIC',
+        description: 'Laboratorio de computacion',
+        icon: 'desktop_windows',
       },
       {
         value: 'laboratorio-fisica',
-        title: 'Lab de Fisica',
-        description: 'Instrumentos de precision',
+        title: 'Laboratorio SPARK',
+        description: 'Laboratorio con instrumentos de medicion y experimentacion',
         icon: 'science',
       },
       {
         value: 'laboratorio-quimica',
-        title: 'Lab de Quimica',
-        description: 'Equipamiento especializado',
+        title: 'Laboratorio KITE',
+        description: 'Laboratorio con herramientas para la creacion de tus proyectos',
         icon: 'biotech',
       },
     ],

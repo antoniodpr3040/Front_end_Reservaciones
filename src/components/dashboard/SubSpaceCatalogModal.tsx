@@ -14,50 +14,53 @@ export function SubSpaceCatalogModal({
   onClose,
 }: SubSpaceCatalogModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/35 backdrop-blur-[6px]"
         onClick={onClose}
       />
-      <div className="relative z-10 flex max-h-[90dvh] w-full flex-col rounded-t-3xl bg-surface-container-lowest shadow-2xl sm:max-w-lg sm:rounded-3xl">
-        <div className="flex-shrink-0 px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
-          <div className="mb-1 flex items-start justify-between gap-4">
-            <h2 className="text-xl font-extrabold text-on-surface font-headline sm:text-2xl">
+      <div className="relative z-10 flex max-h-[90dvh] w-full max-w-[640px] flex-col rounded-[1.75rem] bg-surface-container-lowest shadow-[0_28px_80px_-28px_rgba(15,23,42,0.45)]">
+        <div className="flex-shrink-0 px-7 pt-8 pb-5 sm:px-8 sm:pt-8">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <h2 className="text-3xl font-extrabold leading-none text-on-surface font-headline">
               {parentTitle}
             </h2>
             <button
               type="button"
               onClick={onClose}
-              className="flex-shrink-0 rounded-xl p-1.5 text-on-surface-variant transition-colors hover:bg-surface-container-high active:scale-95"
+              className="-mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high active:scale-95"
+              aria-label="Cerrar catalogo"
             >
-              <span className="material-symbols-outlined">close</span>
+              <span className="material-symbols-outlined text-[28px]">close</span>
             </button>
           </div>
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-lg text-on-surface-variant">
             Selecciona el espacio que deseas reservar
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-5 sm:px-6 sm:pb-6">
-          <div className="flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto px-7 pb-8 sm:px-8">
+          <div className="flex flex-col gap-4">
             {subSpaces.map((sub) => (
               <div
                 key={sub.value}
-                className="flex items-center gap-4 rounded-2xl bg-surface-container-low p-4"
+                className="flex min-h-[94px] items-center gap-5 rounded-[1.125rem] bg-surface-container-low px-5 py-4"
               >
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-fixed-dim/30 text-primary">
-                  <span className="material-symbols-outlined text-xl">{sub.icon}</span>
+                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-primary-fixed text-primary">
+                  <span className="material-symbols-outlined text-[30px]">{sub.icon}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-on-surface font-headline leading-tight">
+                  <h3 className="text-xl font-extrabold leading-tight text-on-surface font-headline">
                     {sub.title}
                   </h3>
-                  <p className="text-xs text-on-surface-variant">{sub.description}</p>
+                  <p className="mt-1 max-w-[330px] text-base leading-tight text-on-surface-variant">
+                    {sub.description}
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onSelect(sub)}
-                  className="flex-shrink-0 rounded-xl bg-primary-gradient px-4 py-2.5 text-sm font-bold text-on-primary transition-all active:scale-95"
+                  className="flex-shrink-0 rounded-[0.9rem] bg-primary px-5 py-3.5 text-base font-extrabold text-on-primary transition-all hover:bg-primary-container active:scale-95"
                 >
                   Reservar
                 </button>
