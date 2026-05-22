@@ -1329,14 +1329,7 @@ export function DashboardView({
                 })}
               </div>
               <div className="flex flex-wrap gap-4 border-t border-surface-container pt-4 text-[11px] font-semibold tracking-wider text-outline uppercase">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-surface-container"></span>
-                  <span>Disponible</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded bg-primary"></span>
-                  <span>Con reservas</span>
-                </div>
+
               </div>
             </div>
           </div>
