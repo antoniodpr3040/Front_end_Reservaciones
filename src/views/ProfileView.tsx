@@ -202,11 +202,6 @@ export function ProfileView() {
               </div>
             </div>
 
-            <div className="rounded-2xl bg-surface-container-low px-5 py-4 text-sm leading-relaxed text-on-surface-variant">
-              Tu cookie de autenticacion es administrada por el backend. El
-              boton de abajo llama a la ruta de logout para invalidar la sesion.
-            </div>
-
             {logoutError ? (
               <div className="mt-5 rounded-2xl bg-error-container px-5 py-4 text-sm text-on-error-container">
                 {logoutError}
